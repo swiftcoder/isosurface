@@ -1,0 +1,13 @@
+[package]
+name = "isosurface"
+version = "0.0.1"
+authors = ["Tristam MacDonald <swiftcoder@gmail.com>"]
+license = "Apache-2.0"
+
+[dev-dependencies]
+glium = "0.18.0"
+cgmath = "0.15.0"
+num = "0.1.40"
+
+[profile.dev]
+opt-level = 2
