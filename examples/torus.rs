@@ -18,14 +18,17 @@ extern crate cgmath;
 extern crate num;
 extern crate isosurface;
 
+mod common;
+
 use glium::glutin;
 use glium::Surface;
 use glium::index::PrimitiveType;
 use glutin::{GlProfile, GlRequest, Api, Event, WindowEvent, ControlFlow};
 use cgmath::{Vector3, vec3, Matrix4, Point3};
 use num::range_step;
-use std::slice;
 use isosurface::marching_cubes;
+use common::sources::Torus;
+use common::reinterpret_cast_slice;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -35,33 +38,6 @@ struct Vertex {
 }
 
 implement_vertex!(Vertex, position, normal);
-
-/// This is used to reinterpret slices of floats as slices of repr(C) structs, without any
-/// copying. It is optimal, but it is also punching holes in the type system. I hope that Rust
-/// provides safe functionality to handle this in the future. In the meantime, reproduce
-/// this workaround at your own risk.
-fn reinterpret_cast_slice<S, T>(input : &[S], length : usize) -> &[T] {
-    unsafe {
-        slice::from_raw_parts(input.as_ptr() as *const T, length)
-    }
-}
-
-/// The distance-field equation for a torus
-fn torus(x : f32, y : f32, z : f32) -> f32 {
-    const R1 : f32 = 1.0 / 4.0;
-    const R2 : f32 = 1.0 / 10.0;
-    let q_x = ((x*x + y*y).sqrt()).abs() - R1;
-    let len = (q_x*q_x + z*z).sqrt();
-    len - R2
-}
-
-struct Torus {}
-
-impl marching_cubes::Source for Torus {
-    fn sample(&self, x : f32, y : f32, z : f32) -> f32 {
-        torus(x - 0.5, y - 0.5, z - 0.5)
-    }
-}
 
 /// Takes an array of vertices, and indices defining the faces of a triangle mesh.
 /// Outputs a welded array of vertices + normals matching the indices.
@@ -140,9 +116,14 @@ fn main() {
 
                     layout(location=0) out vec4 color;
 
+                    vec3 hemisphere(vec3 normal) {
+                        const vec3 light = vec3(0.1, -1.0, 0.0);
+                        float NdotL = dot(normal, light)*0.5 + 0.5;
+                        return mix(vec3(0.886, 0.757, 0.337), vec3(0.518, 0.169, 0.0), NdotL);
+                    }
+
                     void main() {
-                        float NdotL = dot(normalize(vNormal), vec3(0,-1,0))*0.75 + 0.25;
-                        color = vec4(vec3(0.667, 0.459, 0.224) * NdotL, 1.0);
+                        color = vec4(hemisphere(normalize(vNormal)), 1.0);
                     }
                 "
             },
@@ -161,7 +142,7 @@ fn main() {
         }
 
         let mut surface = display.draw();
-        surface.clear_color_and_depth((0.153, 0.337, 0.42, 0.0), 1.0);
+        surface.clear_color_and_depth((0.024, 0.184, 0.337, 0.0), 1.0);
 
         let uniforms = uniform! {
             model_view_projection: Into::<[[f32; 4]; 4]>::into(projection * view),

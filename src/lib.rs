@@ -12,10 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Algorithms for extracting triangle meshes from isosurfaces.
+//! Algorithms for extracting meshes from isosurfaces.
 
-/// A highly-optimised marching cubes implementation.
+/// Traits for defining isosurface data sources
+pub mod source;
+
+/// Convert isosurfaces to meshes using marching cubes.
+///
+/// Pros:
+///
+/// * Very fast
+/// * Extraction has no dependencies on neighbouring chunks
+///
+/// Cons:
+///
+/// * Produces a lot of small triangle slivers
+/// * Cracks between chunks of differing levels of detail
 pub mod marching_cubes;
+
+/// Convert isosurfaces to point clouds
+///
+/// Pros:
+///
+/// * Blindingly fast
+///
+/// Cons:
+///
+/// * Doesn't contain any surface data. Surfaces have to be reconsutructed, probably on the GPU.
+pub mod point_cloud;
 
 mod marching_cubes_tables;
 mod index_cache;

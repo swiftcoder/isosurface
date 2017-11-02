@@ -1,5 +1,5 @@
 # Isosurface
-Isosurface extraction algorithms for Rust. Currently only Marching Cubes is implemented, fancier algorithms to be added at a later date.
+Isosurface extraction algorithms for Rust. Currently only a few techniques are implemented, fancier algorithms to be added at a later date.
 
 This crate has no dependencies, although the example relies on the glium, cgmath, num crates.
 
@@ -10,7 +10,10 @@ The implementation has been optimised for performance, with memory use kept as a
 
 Indices are 32-bit becuase for chunks of 32x32 and larger you'll typically end up with mor than 65k vertices. If you are targetting a mobile platform that supports only 16-bit indices, you'll need to use smaller chunk sizes, and truncate on the output side.
 
+# Point Clouds and Deferred Rasterisation
+Point cloud extraction is typically not all that useful, given that point clouds don't contain any data about the actual surface. However, Gavan Woolery (gavanw@) posted an interesting image of reconstructing surface data in image space on the GPU, so I've added a simple example of that.  
+
 # Why are optimisations enabled in debug builds?
 Without optimisations enabled, debug builds are 70x slower (1 minute to extract a 256^3 volume, versus ~800 milliseconds). 
 
-This implementation relies on a lot of nested for loops over integer ranges, and the range iterators themselves entirely dominate the CPU profiles in unoptimised builds. While this could likely be worked around by converting the `for 0..8` style of loop to a while loop with manual counter, that seems ugly and distinctly not in the spirit of rust. I'd rather leave optimisations enabled, and wait for the compiler to become better at handling iterators.
+The marching cubes implementation relies on a lot of nested for loops over integer ranges, and the range iterators themselves entirely dominate the CPU profiles in unoptimised builds. While this could likely be worked around by converting the `for 0..8` style of loop to a while loop with manual counter, that seems ugly and distinctly not in the spirit of rust. I'd rather leave optimisations enabled, and wait for the compiler to become better at handling iterators.

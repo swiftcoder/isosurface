@@ -12,17 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use source::Source;
 use index_cache::IndexCache;
 use marching_cubes_tables::{CORNERS, EDGE_CONNECTION, TRIANGLE_CONNECTION};
-
-/// A source capable of sampling a signed distance field at discrete coordinates.
-pub trait Source {
-    /// Samples the distance field at the given (x, y, z) coordinates.
-    ///
-    /// Must return the signed distance (i.e. negative for coodinates inside the surface),
-    /// as our Marching Cubes implementation will evaluate the surface at the zero-crossing.
-    fn sample(&self, x : f32, y : f32, z : f32) -> f32;
-}
 
 /// Extracts meshes from distance fields using the marching cubes algorithm.
 pub struct MarchingCubes {
@@ -51,7 +43,7 @@ impl MarchingCubes {
         }
     }
 
-    /// Extracts a mesh from the given [`Source`](trait.Source.html).
+    /// Extracts a mesh from the given [`Source`](../source/trait.Source.html).
     ///
     /// The Source will be sampled in the range (0,0,0) to (1,1,1), with the number of steps
     /// determined by the size provided to the constructor.
