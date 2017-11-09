@@ -68,7 +68,7 @@ fn main() {
     let vertex_buffer: glium::VertexBuffer<Vertex> = {
         glium::VertexBuffer::new(
             &display,
-            reinterpret_cast_slice(&vertices, vertices.len()/3)
+            reinterpret_cast_slice(&vertices)
         ).expect("failed to create vertex buffer")
     };
 

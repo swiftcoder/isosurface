@@ -83,12 +83,12 @@ fn main() {
 
     let mut vertices_with_normals = vec![];
 
-    build_smooth_normals(reinterpret_cast_slice(&vertices, vertices.len()/3), &indices, &mut vertices_with_normals);
+    build_smooth_normals(reinterpret_cast_slice(&vertices), &indices, &mut vertices_with_normals);
 
     let vertex_buffer: glium::VertexBuffer<Vertex> = {
         glium::VertexBuffer::new(
             &display,
-            reinterpret_cast_slice(&vertices_with_normals, vertices.len()/3)
+            reinterpret_cast_slice(&vertices_with_normals)
         ).expect("failed to create vertex buffer")
     };
 
