@@ -20,3 +20,11 @@ pub trait Source {
     /// as our Marching Cubes implementation will evaluate the surface at the zero-crossing.
     fn sample(&self, x : f32, y : f32, z : f32) -> f32;
 }
+
+/// A source capable of evaluating the normal vector to a signed distance field at discrete coordinates.
+pub trait HermiteSource : Source {
+    /// Samples the distance field at the given (x, y, z) coordinates.
+    ///
+    /// Must return a normal vector to the surface as an (x, y, z) tuple.
+    fn sample_normal(&self, x : f32, y : f32, z : f32) -> (f32, f32, f32);
+}

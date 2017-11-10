@@ -14,7 +14,9 @@
 
 //! Isosurface definitions for use in multiple examples
 
-use isosurface;
+use isosurface::source::{Source, HermiteSource};
+
+const EPSILON : f32 = 0.0001;
 
 /// The distance-field equation for a torus
 fn torus(x : f32, y : f32, z : f32) -> f32 {
@@ -27,8 +29,37 @@ fn torus(x : f32, y : f32, z : f32) -> f32 {
 
 pub struct Torus {}
 
-impl isosurface::source::Source for Torus {
+impl Source for Torus {
     fn sample(&self, x : f32, y : f32, z : f32) -> f32 {
         torus(x - 0.5, y - 0.5, z - 0.5)
+    }
+}
+
+pub struct CentralDifference {
+    source : Box<Source>,
+}
+
+impl CentralDifference {
+    pub fn new(source : Box<Source>) -> CentralDifference {
+        CentralDifference{
+            source
+        }
+    }
+}
+
+impl Source for CentralDifference {
+    fn sample(&self, x : f32, y : f32, z : f32) -> f32 {
+        self.source.sample(x, y, z)
+    }
+}
+
+impl HermiteSource for CentralDifference {
+    fn sample_normal(&self, x: f32, y: f32, z: f32) -> (f32, f32, f32) {
+        let v = self.sample(x, y, z);
+        let vx = self.sample(x + EPSILON, y, z);
+        let vy = self.sample(x, y + EPSILON, z);
+        let vz = self.sample(x, y, z + EPSILON);
+
+        (vx - v, vy - v, vz - v)
     }
 }
