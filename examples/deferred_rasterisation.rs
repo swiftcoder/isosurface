@@ -15,7 +15,6 @@
 #[macro_use]
 extern crate glium;
 extern crate cgmath;
-extern crate num;
 extern crate isosurface;
 
 mod common;
@@ -25,8 +24,9 @@ use glium::Surface;
 use glium::texture::{MipmapsOption, Texture2d, DepthTexture2d, UncompressedFloatFormat, DepthFormat};
 use glutin::{GlProfile, GlRequest, Api, Event, WindowEvent, ControlFlow};
 use cgmath::{vec3, Matrix4, Point3, SquareMatrix};
-use isosurface::point_cloud;
-use common::sources::{Torus, CentralDifference};
+use isosurface::point_cloud::PointCloud;
+use isosurface::source::CentralDifference;
+use common::sources::Torus;
 use common::reinterpret_cast_slice;
 
 #[derive(Copy, Clone)]
@@ -71,7 +71,7 @@ fn main() {
     let central_difference = CentralDifference::new(Box::new(torus));
 
     let mut vertices = vec![];
-    let mut marcher = point_cloud::PointCloud::new(subdivisions);
+    let mut marcher = PointCloud::new(subdivisions);
 
     marcher.extract_midpoints_with_normals(&central_difference, &mut vertices);
 

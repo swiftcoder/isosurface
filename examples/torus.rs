@@ -15,7 +15,6 @@
 #[macro_use]
 extern crate glium;
 extern crate cgmath;
-extern crate num;
 extern crate isosurface;
 
 mod common;
@@ -24,9 +23,9 @@ use glium::glutin;
 use glium::Surface;
 use glium::index::PrimitiveType;
 use glutin::{GlProfile, GlRequest, Api, Event, WindowEvent, ControlFlow};
-use cgmath::{Vector3, vec3, Matrix4, Point3};
-use num::range_step;
-use isosurface::marching_cubes;
+use cgmath::{vec3, Matrix4, Point3};
+use isosurface::marching_cubes::MarchingCubes;
+use isosurface::source::CentralDifference;
 use common::sources::Torus;
 use common::reinterpret_cast_slice;
 
@@ -38,27 +37,6 @@ struct Vertex {
 }
 
 implement_vertex!(Vertex, position, normal);
-
-/// Takes an array of vertices, and indices defining the faces of a triangle mesh.
-/// Outputs a welded array of vertices + normals matching the indices.
-fn build_smooth_normals(vertices : &[Vector3<f32>], indices : &[u32], output : &mut Vec<Vector3<f32>>) {
-    for &v in vertices.iter() {
-        output.push(v);
-        output.push(vec3(0.0, 0.0, 0.0));
-    }
-
-    for i in range_step(0, indices.len(), 3) {
-        let v0 : Vector3<f32> = vertices[indices[i] as usize];
-        let v1 : Vector3<f32> = vertices[indices[i+1] as usize];
-        let v2 : Vector3<f32> = vertices[indices[i+2] as usize];
-
-        let n = (v1 - v0).cross(v2 - v0);
-
-        for j in 0..3 {
-            output[(indices[i+j]*2 + 1) as usize] = output[(indices[i+j]*2 + 1) as usize] + n;
-        }
-    }
-}
 
 fn main() {
     let mut events_loop = glutin::EventsLoop::new();
@@ -74,21 +52,18 @@ fn main() {
         .expect("failed to create display");
 
     let torus = Torus{};
+    let central_difference = CentralDifference::new(Box::new(torus));
 
     let mut vertices = vec![];
     let mut indices = vec![];
-    let mut marching_cubes = marching_cubes::MarchingCubes::new(256);
+    let mut marching_cubes = MarchingCubes::new(256);
 
-    marching_cubes.extract(&torus, &mut vertices, &mut indices);
-
-    let mut vertices_with_normals = vec![];
-
-    build_smooth_normals(reinterpret_cast_slice(&vertices), &indices, &mut vertices_with_normals);
+    marching_cubes.extract_with_normals(&central_difference, &mut vertices, &mut indices);
 
     let vertex_buffer: glium::VertexBuffer<Vertex> = {
         glium::VertexBuffer::new(
             &display,
-            reinterpret_cast_slice(&vertices_with_normals)
+            reinterpret_cast_slice(&vertices)
         ).expect("failed to create vertex buffer")
     };
 

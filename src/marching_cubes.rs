@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use source::Source;
+use source::{Source, HermiteSource};
 use index_cache::IndexCache;
 use marching_cubes_tables::{CORNERS, EDGE_CONNECTION, TRIANGLE_CONNECTION};
 
@@ -53,7 +53,36 @@ impl MarchingCubes {
     /// vertex indices.
     pub fn extract<S>(&mut self, source : &S, vertices : &mut Vec<f32>, indices : &mut Vec<u32>)
         where S : Source {
+        self.extract_impl(source,|x : f32, y : f32, z : f32| {
+            vertices.push(x);
+            vertices.push(y);
+            vertices.push(z);
+        }, indices);
+    }
 
+    /// Extracts a mesh from the given [`HermiteSource`](../source/trait.HermiteSource.html).
+    ///
+    /// The Source will be sampled in the range (0,0,0) to (1,1,1), with the number of steps
+    /// determined by the size provided to the constructor.
+    ///
+    /// Extracted vertices will be appended to `vertices` as triples of (x, y, z)
+    /// coordinates, followed by the surface normals as triples of (x, y, z) dimensions. Extracted
+    /// triangles will be appended to `indices` as triples of vertex indices.
+    pub fn extract_with_normals<S>(&mut self, source: &S, vertices: &mut Vec<f32>, indices : &mut Vec<u32>)
+        where S: HermiteSource {
+        self.extract_impl(source, |x : f32, y : f32, z : f32| {
+            let (nx, ny, nz) = source.sample_normal(x, y, z);
+            vertices.push(x);
+            vertices.push(y);
+            vertices.push(z);
+            vertices.push(nx);
+            vertices.push(ny);
+            vertices.push(nz);
+        }, indices);
+    }
+
+    fn extract_impl<S, E>(&mut self, source : &S, mut extract: E, indices : &mut Vec<u32>)
+        where S : Source, E : FnMut (f32, f32, f32) -> () {
         let size_minus_one = self.size - 1;
         let one_over_size = 1.0 / (size_minus_one as f32);
 
@@ -70,6 +99,7 @@ impl MarchingCubes {
         let mut values = [0f32; 8];
 
         let mut index_cache = IndexCache::new(self.size);
+        let mut index = 0u32;
 
         for z in 0..self.size {
 
@@ -115,14 +145,16 @@ impl MarchingCubes {
                                 let u = EDGE_CONNECTION[vert][0];
                                 let v = EDGE_CONNECTION[vert][1];
 
-                                let index = (vertices.len() / 3) as u32;
                                 index_cache.put(x, y, vert, index);
                                 indices.push(index);
+                                index += 1;
 
                                 let offset = get_offset(values[u], values[v]);
-                                for k in 0..3 {
-                                    vertices.push(interpolate(corners[u][k], corners[v][k], offset));
-                                }
+                                extract(
+                                    interpolate(corners[u][0], corners[v][0], offset),
+                                    interpolate(corners[u][1], corners[v][1], offset),
+                                    interpolate(corners[u][2], corners[v][2], offset)
+                                );
                             }
                         }
                     }

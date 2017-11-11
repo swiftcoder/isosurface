@@ -1,6 +1,6 @@
 [package]
 name = "isosurface"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Tristam MacDonald <swiftcoder@gmail.com>"]
 license = "Apache-2.0"
 description = "Isosurface extraction algorithms"
@@ -10,7 +10,6 @@ readme = "README.md"
 [dev-dependencies]
 glium = "0.18.0"
 cgmath = "0.15.0"
-num = "0.1.40"
 
 [profile.dev]
 opt-level = 2

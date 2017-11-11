@@ -28,3 +28,44 @@ pub trait HermiteSource : Source {
     /// Must return a normal vector to the surface as an (x, y, z) tuple.
     fn sample_normal(&self, x : f32, y : f32, z : f32) -> (f32, f32, f32);
 }
+
+/// Adapts a Source to a HermiteSource by deriving normals from the surface via central differencing
+pub struct CentralDifference {
+    source : Box<Source>,
+    epsilon : f32,
+}
+
+impl CentralDifference {
+    /// Create an adaptor from a [Source](trait.Source.html)
+    pub fn new(source : Box<Source>) -> CentralDifference {
+        CentralDifference{
+            source,
+            epsilon: 0.0001,
+        }
+    }
+
+    /// Create an adaptor from a [Source](trait.Source.html) and an epsilon value
+    pub fn new_with_epsilon(source : Box<Source>, epsilon : f32) -> CentralDifference {
+        CentralDifference {
+            source,
+            epsilon,
+        }
+    }
+}
+
+impl Source for CentralDifference {
+    fn sample(&self, x : f32, y : f32, z : f32) -> f32 {
+        self.source.sample(x, y, z)
+    }
+}
+
+impl HermiteSource for CentralDifference {
+    fn sample_normal(&self, x: f32, y: f32, z: f32) -> (f32, f32, f32) {
+        let v = self.sample(x, y, z);
+        let vx = self.sample(x + self.epsilon, y, z);
+        let vy = self.sample(x, y + self.epsilon, z);
+        let vz = self.sample(x, y, z + self.epsilon);
+
+        (vx - v, vy - v, vz - v)
+    }
+}
