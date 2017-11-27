@@ -1,4 +1,4 @@
-// Copyright 2017 Tristam MacDonald
+// Copyright 2018 Tristam MacDonald
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use source::{Source, HermiteSource};
-use marching_cubes_tables::{CORNERS};
+use source::{HermiteSource, Source};
+use marching_cubes_tables::CORNERS;
 
 /// Extracts point clouds from distance fields.
 pub struct PointCloud {
-    size : usize,
-    layers : [Vec<f32>; 2],
+    size: usize,
+    layers: [Vec<f32>; 2],
 }
 
 impl PointCloud {
@@ -40,8 +40,10 @@ impl PointCloud {
     /// The midpoints of extracted voxels will be appended to `vertices` as triples of (x, y, z)
     /// coordinates.
     pub fn extract_midpoints<S>(&mut self, source: &S, vertices: &mut Vec<f32>)
-        where S: Source {
-        self.extract_impl(source, |x : f32, y : f32, z : f32| {
+    where
+        S: Source,
+    {
+        self.extract_impl(source, |x: f32, y: f32, z: f32| {
             vertices.push(x);
             vertices.push(y);
             vertices.push(z);
@@ -56,29 +58,33 @@ impl PointCloud {
     /// The midpoints of extracted voxels will be appended to `vertices` as triples of (x, y, z)
     /// coordinates, followed by the surface normals as triples of (x, y, z) dimensions.
     pub fn extract_midpoints_with_normals<S>(&mut self, source: &S, vertices: &mut Vec<f32>)
-        where S: HermiteSource {
-        self.extract_impl(source, |x : f32, y : f32, z : f32| {
-            let (nx, ny, nz) = source.sample_normal(x, y, z);
+    where
+        S: HermiteSource,
+    {
+        self.extract_impl(source, |x: f32, y: f32, z: f32| {
+            let n = source.sample_normal(x, y, z);
             vertices.push(x);
             vertices.push(y);
             vertices.push(z);
-            vertices.push(nx);
-            vertices.push(ny);
-            vertices.push(nz);
+            vertices.push(n.x);
+            vertices.push(n.y);
+            vertices.push(n.z);
         });
     }
 
     fn extract_impl<S, E>(&mut self, source: &S, mut extract: E)
-        where S: Source, E : FnMut (f32, f32, f32) -> () {
+    where
+        S: Source,
+        E: FnMut(f32, f32, f32) -> (),
+    {
         let size_minus_one = self.size - 1;
         let one_over_size = 1.0 / (size_minus_one as f32);
 
         // Cache layer zero of distance field values
         for y in 0usize..self.size {
             for x in 0..self.size {
-                self.layers[0][y * self.size + x] = source.sample(x as f32 * one_over_size,
-                                                                  y as f32 * one_over_size,
-                                                                  0.0);
+                self.layers[0][y * self.size + x] =
+                    source.sample(x as f32 * one_over_size, y as f32 * one_over_size, 0.0);
             }
         }
 
@@ -88,9 +94,11 @@ impl PointCloud {
             // Cache layer N+1 of isosurface values
             for y in 0..self.size {
                 for x in 0..self.size {
-                    self.layers[1][y * self.size + x] = source.sample(x as f32 * one_over_size,
-                                                                      y as f32 * one_over_size,
-                                                                      (z + 1) as f32 * one_over_size);
+                    self.layers[1][y * self.size + x] = source.sample(
+                        x as f32 * one_over_size,
+                        y as f32 * one_over_size,
+                        (z + 1) as f32 * one_over_size,
+                    );
                 }
             }
 
@@ -98,7 +106,8 @@ impl PointCloud {
             for y in 0..size_minus_one {
                 for x in 0..size_minus_one {
                     for i in 0..8 {
-                        values[i] = self.layers[CORNERS[i][2]][(y + CORNERS[i][1]) * self.size + x + CORNERS[i][0]];
+                        values[i] = self.layers[CORNERS[i][2]]
+                            [(y + CORNERS[i][1]) * self.size + x + CORNERS[i][0]];
                     }
 
                     let mut cube_index = 0;
@@ -123,5 +132,4 @@ impl PointCloud {
             self.layers.swap(0, 1);
         }
     }
-
 }

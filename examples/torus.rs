@@ -1,4 +1,4 @@
-// Copyright 2017 Tristam MacDonald
+// Copyright 2018 Tristam MacDonald
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,22 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate cgmath;
 #[macro_use]
 extern crate glium;
-extern crate cgmath;
+extern crate glium_text_rusttype as glium_text;
 extern crate isosurface;
 
 mod common;
 
 use glium::glutin;
 use glium::Surface;
+use glium::backend::Facade;
 use glium::index::PrimitiveType;
-use glutin::{GlProfile, GlRequest, Api, Event, WindowEvent, ControlFlow};
-use cgmath::{vec3, Matrix4, Point3};
+use glium::draw_parameters::PolygonMode;
+use glium::glutin::{Api, ControlFlow, ElementState, Event, GlProfile, GlRequest, KeyboardInput,
+                    VirtualKeyCode, WindowEvent};
+use cgmath::{Matrix4, Point3, vec3};
 use isosurface::marching_cubes::MarchingCubes;
+use isosurface::linear_hashed_marching_cubes::LinearHashedMarchingCubes;
 use isosurface::source::CentralDifference;
-use common::sources::Torus;
+use common::sources::{CubeSphere, Torus};
 use common::reinterpret_cast_slice;
+use common::text::layout_text;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -37,6 +43,59 @@ struct Vertex {
 }
 
 implement_vertex!(Vertex, position, normal);
+
+const HELP_TEXT : &'static str = "Press [A] to switch Algorithm, [S] to switch Shape, or [W] to toggle Wireframe";
+
+struct GenerateResult(glium::VertexBuffer<Vertex>, glium::IndexBuffer<u32>, String);
+
+fn generate<F>(display: &F, shape: usize, algorithm: usize) -> GenerateResult
+where
+    F: Facade,
+{
+    let mut vertices = vec![];
+    let mut indices = vec![];
+
+    let (source, shape_name) = match shape % 2 {
+        0 => (CentralDifference::new(Box::new(Torus {})), "Torus"),
+        _ => (
+            CentralDifference::new(Box::new(CubeSphere {})),
+            "Cube Sphere",
+        ),
+    };
+
+    let algorithm_name = match algorithm % 2 {
+        0 => {
+            let mut marching_cubes = MarchingCubes::new(128);
+            marching_cubes.extract_with_normals(&source, &mut vertices, &mut indices);
+            "Marching Cubes"
+        }
+        _ => {
+            let mut linear_hashed_marching_cubes = LinearHashedMarchingCubes::new(7);
+            linear_hashed_marching_cubes.extract_with_normals(&source, &mut vertices, &mut indices);
+            "Linear Hashed Marching Cubes"
+        }
+    };
+
+    let vertex_buffer: glium::VertexBuffer<Vertex> =
+        glium::VertexBuffer::new(display, reinterpret_cast_slice(&vertices))
+            .expect("failed to create vertex buffer");
+
+    let index_buffer: glium::IndexBuffer<u32> =
+        glium::IndexBuffer::new(display, PrimitiveType::TrianglesList, &indices)
+            .expect("failed to create index buffer");
+
+    GenerateResult(
+        vertex_buffer,
+        index_buffer,
+        format!(
+            "{} - {}. {} vertices {} triangles",
+            shape_name,
+            algorithm_name,
+            vertices.len() / 6,
+            indices.len() / 3
+        ),
+    )
+}
 
 fn main() {
     let mut events_loop = glutin::EventsLoop::new();
@@ -48,28 +107,23 @@ fn main() {
         .with_gl_profile(GlProfile::Core)
         .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
         .with_depth_buffer(24);
-    let display = glium::Display::new(window, context, &events_loop)
-        .expect("failed to create display");
+    let display =
+        glium::Display::new(window, context, &events_loop).expect("failed to create display");
 
-    let torus = Torus{};
-    let central_difference = CentralDifference::new(Box::new(torus));
+    let text_system = glium_text::TextSystem::new(&display);
+    let font = glium_text::FontTexture::new(
+        &display,
+        &include_bytes!("fonts/RobotoMono-Regular.ttf")[..],
+        24,
+        glium_text::FontTexture::ascii_character_list(),
+    ).unwrap();
+    let mut text = glium_text::TextDisplay::new(&text_system, &font, "");
 
-    let mut vertices = vec![];
-    let mut indices = vec![];
-    let mut marching_cubes = MarchingCubes::new(256);
+    let mut wireframe = false;
+    let mut shape = 0;
+    let mut algorithm = 0;
 
-    marching_cubes.extract_with_normals(&central_difference, &mut vertices, &mut indices);
-
-    let vertex_buffer: glium::VertexBuffer<Vertex> = {
-        glium::VertexBuffer::new(
-            &display,
-            reinterpret_cast_slice(&vertices)
-        ).expect("failed to create vertex buffer")
-    };
-
-    let index_buffer: glium::IndexBuffer<u32> =
-        glium::IndexBuffer::new(&display, PrimitiveType::TrianglesList, &indices)
-            .expect("failed to create index buffer");
+    let mut generated = generate(&display, shape, algorithm);
 
     let program = program!(&display,
             330 => {
@@ -104,13 +158,45 @@ fn main() {
             },
         ).expect("failed to compile shaders");
 
-    let projection = cgmath::perspective(cgmath::Deg(45.0), 1024.0/768.0, 0.01, 1000.0);
-    let view = Matrix4::look_at(Point3::new(-0.25, -0.25, -0.25), Point3::new(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+    let (view_w, view_h) = display.get_framebuffer_dimensions();
+    let aspect = view_w as f32 / view_h as f32;
+    let projection = cgmath::perspective(cgmath::Deg(45.0), aspect, 0.01, 1000.0);
+    let view = Matrix4::look_at(
+        Point3::new(-0.25, -0.25, -0.25),
+        Point3::new(0.0, 0.0, 0.0),
+        vec3(0.0, 1.0, 0.0),
+    );
+
+    let help_transform = layout_text(50.0, aspect, 1.0, 1.0);
+    let label_transform = layout_text(50.0, aspect, 1.0, 50.0 / aspect - 2.0);
 
     events_loop.run_forever(|event| {
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Closed => return ControlFlow::Break,
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode,
+                            ..
+                        },
+                    ..
+                } => match virtual_keycode {
+                    Some(VirtualKeyCode::Escape) => return ControlFlow::Break,
+                    Some(VirtualKeyCode::W) => {
+                        wireframe = !wireframe;
+                    }
+                    Some(VirtualKeyCode::A) => {
+                        algorithm += 1;
+                        generated = generate(&display, shape, algorithm);
+                    }
+                    Some(VirtualKeyCode::S) => {
+                        shape += 1;
+                        generated = generate(&display, shape, algorithm);
+                    }
+                    _ => (),
+                },
                 _ => (),
             },
             _ => (),
@@ -123,27 +209,54 @@ fn main() {
             model_view_projection: Into::<[[f32; 4]; 4]>::into(projection * view),
         };
 
-        let params = glium::DrawParameters {
+        let polygon_mode = if wireframe {
+            PolygonMode::Line
+        } else {
+            PolygonMode::Fill
+        };
+
+        let draw_parameters = glium::DrawParameters {
             depth: glium::Depth {
                 test: glium::DepthTest::IfLess,
                 write: true,
                 ..Default::default()
             },
+            point_size: Some(8.0),
+            polygon_mode,
             backface_culling: glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
             ..Default::default()
         };
 
-        surface.draw(
-            &vertex_buffer,
-            &index_buffer,
-            &program,
-            &uniforms,
-            &params,
-        ).expect("failed to draw to surface");
+        surface
+            .draw(
+                &generated.0,
+                &generated.1,
+                &program,
+                &uniforms,
+                &draw_parameters,
+            )
+            .expect("failed to draw to surface");
+
+        text.set_text(&generated.2);
+        glium_text::draw(
+            &text,
+            &text_system,
+            &mut surface,
+            Into::<[[f32; 4]; 4]>::into(label_transform),
+            (1.0, 1.0, 1.0, 1.0),
+        ).expect("failed to render text");
+
+        text.set_text(HELP_TEXT);
+        glium_text::draw(
+            &text,
+            &text_system,
+            &mut surface,
+            Into::<[[f32; 4]; 4]>::into(help_transform),
+            (1.0, 1.0, 1.0, 1.0),
+        ).expect("failed to render text");
 
         surface.finish().expect("failed to finish rendering frame");
 
         ControlFlow::Continue
     });
-
 }

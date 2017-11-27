@@ -1,4 +1,4 @@
-// Copyright 2017 Tristam MacDonald
+// Copyright 2018 Tristam MacDonald
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,12 +22,11 @@ pub struct IndexCache {
 }
 
 impl IndexCache {
-
     /// Create a new IndexCache for the given chunk size
-    pub fn new(size : usize) -> IndexCache {
-        IndexCache{
+    pub fn new(size: usize) -> IndexCache {
+        IndexCache {
             size,
-            layers: [vec![[0; 4]; size*size], vec![[0; 4]; size*size]],
+            layers: [vec![[0; 4]; size * size], vec![[0; 4]; size * size]],
             rows: [vec![[0; 3]; size], vec![[0; 3]; size]],
             cells: [[0; 2]; 2],
             current_cell: [0; 12],
@@ -35,7 +34,7 @@ impl IndexCache {
     }
 
     /// Put an index in the cache at the given (x, y, edge) coordinate
-    pub fn put(&mut self, x : usize, y : usize, edge : usize, index : u32) {
+    pub fn put(&mut self, x: usize, y: usize, edge: usize, index: u32) {
         match edge {
             4...7 => self.layers[1][y * self.size + x][edge - 4] = index,
             _ => (),
@@ -58,7 +57,7 @@ impl IndexCache {
     }
 
     /// Retrieve an index from the cache at the given (x, y, edge) coordinate
-    pub fn get(&mut self, x : usize, y : usize, edge : usize) -> u32 {
+    pub fn get(&mut self, x: usize, y: usize, edge: usize) -> u32 {
         let result = match edge {
             0...3 => self.layers[0][y * self.size + x][edge],
             4 => self.rows[0][x][0],
@@ -102,5 +101,4 @@ impl IndexCache {
             *i = [0; 3];
         }
     }
-
 }

@@ -1,15 +1,18 @@
 # Isosurface
-Isosurface extraction algorithms for Rust. Currently only a few techniques are implemented, fancier algorithms to be added at a later date.
+Isosurface extraction algorithms for Rust. Currently only a few techniques are implemented.
 
-This crate has no dependencies, although the example relies on the glium, cgmath, num crates.
+This crate intentionally has no dependencies to keep the footprint of the library small. The examples rely on the `glium`, `glium_text_rusttype`, and `cgmath` crates.
 
 # Marching Cubes
-The Marching Cubes implementation produces perfectly indexed meshes with no duplicate vertices, through the use of a (fairly involved) index caching system. The complexity of the cache could no doubt be reduced through some clever arithmetic, but it is not currently a bottleneck.
+The Marching Cubes implementation produces perfectly indexed meshes with few duplicate vertices, through the use of a (fairly involved) index caching system. The complexity of the cache could no doubt be reduced through some clever arithmetic, but it is not currently a bottleneck.
 
 The implementation has been optimised for performance, with memory use kept as a low as possible considering. For an NxNxN voxel chunk, it will allocate roughly NxN of f32 storage for isosurface values, and Nx(N+1) of u32 storage for the index cache.
 
-Indices are 32-bit becuase for chunks of 32x32 and larger you'll typically end up with mor than 65k vertices. If you are targetting a mobile platform that supports only 16-bit indices, you'll need to use smaller chunk sizes, and truncate on the output side.
+Indices are 32-bit because for chunks of 32x32 and larger you'll typically end up with more than 65k vertices. If you are targeting a mobile platform that supports only 16-bit indices, you'll need to use smaller chunk sizes, and truncate on the output side.
 
+# Linear Hashed Marching Cubes
+A very efficient algorithm using interleaved integer coordinates to represent octree cells, and storing them in a hash table. Results in better mesh quality than regular marching cubes, and is significantly faster. Memory usage is less predictable, but shouldn't be significantly higher than standard marching cubes.
+ 
 # Point Clouds and Deferred Rasterisation
 Point cloud extraction is typically not all that useful, given that point clouds don't contain any data about the actual surface. However, Gavan Woolery (gavanw@) posted an interesting image of reconstructing surface data in image space on the GPU, so I've added a simple example of that.  
 
