@@ -56,6 +56,16 @@ where
     pub fn new_with_epsilon(source: S, epsilon: f32) -> CentralDifference<S> {
         CentralDifference { source, epsilon }
     }
+
+    /// Gets the inner source
+    pub fn inner(&self) -> &S {
+        &self.source
+    }
+
+    /// Gets the mutable inner source
+    pub fn inner_mut(&mut self) -> &mut S {
+        &mut self.source
+    }
 }
 
 impl<S> Source for CentralDifference<S>
