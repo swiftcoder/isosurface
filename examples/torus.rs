@@ -56,23 +56,27 @@ where
     let mut vertices = vec![];
     let mut indices = vec![];
 
-    let (source, shape_name) = match shape % 2 {
-        0 => (CentralDifference::new(Box::new(Torus {})), "Torus"),
-        _ => (
-            CentralDifference::new(Box::new(CubeSphere {})),
-            "Cube Sphere",
-        ),
+    let torus_source = CentralDifference::new(Torus {});
+    let cubesphere_source = CentralDifference::new(CubeSphere {});
+
+    let shape_name = match shape % 2 {
+        0 => "Torus",
+        _ => "Cube Sphere",
     };
 
     let algorithm_name = match algorithm % 2 {
         0 => {
             let mut marching_cubes = MarchingCubes::new(128);
-            marching_cubes.extract_with_normals(&source, &mut vertices, &mut indices);
+            marching_cubes.extract_with_normals(&torus_source, &mut vertices, &mut indices);
             "Marching Cubes"
         }
         _ => {
             let mut linear_hashed_marching_cubes = LinearHashedMarchingCubes::new(7);
-            linear_hashed_marching_cubes.extract_with_normals(&source, &mut vertices, &mut indices);
+            linear_hashed_marching_cubes.extract_with_normals(
+                &cubesphere_source,
+                &mut vertices,
+                &mut indices,
+            );
             "Linear Hashed Marching Cubes"
         }
     };

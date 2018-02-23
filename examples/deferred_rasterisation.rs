@@ -70,7 +70,7 @@ fn main() {
     let subdivisions = 64;
 
     let torus = Torus {};
-    let central_difference = CentralDifference::new(Box::new(torus));
+    let central_difference = CentralDifference::new(torus);
 
     let mut vertices = vec![];
     let mut marcher = PointCloud::new(subdivisions);

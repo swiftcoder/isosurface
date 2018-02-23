@@ -32,14 +32,20 @@ pub trait HermiteSource: Source {
 }
 
 /// Adapts a `Source` to a `HermiteSource` by deriving normals from the surface via central differencing
-pub struct CentralDifference {
-    source: Box<Source>,
+pub struct CentralDifference<S>
+where
+    S: Source,
+{
+    source: S,
     epsilon: f32,
 }
 
-impl CentralDifference {
+impl<S> CentralDifference<S>
+where
+    S: Source,
+{
     /// Create an adaptor from a [Source](trait.Source.html)
-    pub fn new(source: Box<Source>) -> CentralDifference {
+    pub fn new(source: S) -> CentralDifference<S> {
         CentralDifference {
             source,
             epsilon: 0.0001,
@@ -47,18 +53,24 @@ impl CentralDifference {
     }
 
     /// Create an adaptor from a [Source](trait.Source.html) and an epsilon value
-    pub fn new_with_epsilon(source: Box<Source>, epsilon: f32) -> CentralDifference {
+    pub fn new_with_epsilon(source: S, epsilon: f32) -> CentralDifference<S> {
         CentralDifference { source, epsilon }
     }
 }
 
-impl Source for CentralDifference {
+impl<S> Source for CentralDifference<S>
+where
+    S: Source,
+{
     fn sample(&self, x: f32, y: f32, z: f32) -> f32 {
         self.source.sample(x, y, z)
     }
 }
 
-impl HermiteSource for CentralDifference {
+impl<S> HermiteSource for CentralDifference<S>
+where
+    S: Source,
+{
     fn sample_normal(&self, x: f32, y: f32, z: f32) -> Vec3 {
         let v = self.sample(x, y, z);
         let vx = self.sample(x + self.epsilon, y, z);
