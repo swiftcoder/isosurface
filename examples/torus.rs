@@ -44,7 +44,8 @@ struct Vertex {
 
 implement_vertex!(Vertex, position, normal);
 
-const HELP_TEXT : &'static str = "Press [A] to switch Algorithm, [S] to switch Shape, or [W] to toggle Wireframe";
+const HELP_TEXT: &'static str =
+    "Press [A] to switch Algorithm, [S] to switch Shape, or [W] to toggle Wireframe";
 
 struct GenerateResult(glium::VertexBuffer<Vertex>, glium::IndexBuffer<u32>, String);
 
