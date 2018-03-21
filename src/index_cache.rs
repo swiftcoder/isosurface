@@ -35,9 +35,8 @@ impl IndexCache {
 
     /// Put an index in the cache at the given (x, y, edge) coordinate
     pub fn put(&mut self, x: usize, y: usize, edge: usize, index: u32) {
-        match edge {
-            4...7 => self.layers[1][y * self.size + x][edge - 4] = index,
-            _ => (),
+        if let 4...7 = edge {
+            self.layers[1][y * self.size + x][edge - 4] = index;
         }
 
         match edge {
@@ -48,8 +47,7 @@ impl IndexCache {
         }
 
         match edge {
-            5 => self.cells[1][0] = index,
-            10 => self.cells[1][0] = index,
+            5 | 10 => self.cells[1][0] = index,
             _ => (),
         }
 
@@ -63,8 +61,7 @@ impl IndexCache {
             4 => self.rows[0][x][0],
             8 => self.rows[0][x][1],
             9 => self.rows[0][x][2],
-            7 => self.cells[0][1],
-            11 => self.cells[0][1],
+            7 | 11 => self.cells[0][1],
             _ => 0,
         };
 
@@ -78,7 +75,7 @@ impl IndexCache {
     /// Update the cache when mesh extraction moves to the next cell
     pub fn advance_cell(&mut self) {
         self.cells.swap(0, 1);
-        for i in self.current_cell.iter_mut() {
+        for i in &mut self.current_cell {
             *i = 0;
         }
     }
@@ -86,7 +83,7 @@ impl IndexCache {
     /// Update the cache when mesh extraction moves to the next row
     pub fn advance_row(&mut self) {
         self.rows.swap(0, 1);
-        for i in self.cells[0].iter_mut() {
+        for i in &mut self.cells[0] {
             *i = 0;
         }
     }
@@ -94,10 +91,10 @@ impl IndexCache {
     /// Update the cache when mesh extraction moves to the next layer
     pub fn advance_layer(&mut self) {
         self.layers.swap(0, 1);
-        for i in self.cells[0].iter_mut() {
+        for i in &mut self.cells[0] {
             *i = 0;
         }
-        for i in self.rows[0].iter_mut() {
+        for i in &mut self.rows[0] {
             *i = [0; 3];
         }
     }

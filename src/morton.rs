@@ -24,20 +24,20 @@ const SHIFT_1A: u64 = 6;
 const SHIFT_1B: u64 = 12;
 const SHIFT_0A: u64 = 2;
 const SHIFT_0B: u64 = 4;
-const DILATE_MASK_2: u64 = 0x7FC0000FF80001FF; // 0-9, 27-36, 54-63
-const DILATE_MASK_1: u64 = 0x01C0E070381C0E07; // 0-3, 9-12, 18-21
-const DILATE_MASK_0: u64 = 0x9249249249249249; // 0,3,6,9,12
-const DILATE_TZ: u64 = 0x4924924924924924; // 2,5,8,11,14
-const DILATE_TY: u64 = 0x2492492492492492; // 1,4,7,10,13
-const DILATE_TX: u64 = 0x9249249249249249; // 0,3,6,9,12
-const DILATE_T1: u64 = 0xB6DB6DB6DB6DB6DB; // ~tz
-const DILATE_T2: u64 = 0xDB6DB6DB6DB6DB6D; // ~ty
-const DILATE_T3: u64 = 0x6DB6DB6DB6DB6DB6; // ~tx
-const LG2_3: f64 = 0.48089834696; // 1.0 / (ln(2) * 3);
+const DILATE_MASK_2: u64 = 0x7FC0_000F_F800_01FF; // 0-9, 27-36, 54-63
+const DILATE_MASK_1: u64 = 0x01C0_E070_381C_0E07; // 0-3, 9-12, 18-21
+const DILATE_MASK_0: u64 = 0x9249_2492_4924_9249; // 0,3,6,9,12
+const DILATE_TZ: u64 = 0x4924_9249_2492_4924; // 2,5,8,11,14
+const DILATE_TY: u64 = 0x2492_4924_9249_2492; // 1,4,7,10,13
+const DILATE_TX: u64 = 0x9249_2492_4924_9249; // 0,3,6,9,12
+const DILATE_T1: u64 = 0xB6DB_6DB6_DB6D_B6DB; // ~tz
+const DILATE_T2: u64 = 0xDB6D_B6DB_6DB6_DB6D; // ~ty
+const DILATE_T3: u64 = 0x6DB6_DB6D_B6DB_6DB6; // ~tx
+const LG2_3: f64 = 0.480_898_346_96; // 1.0 / (ln(2) * 3);
 const MAX_LEVEL: usize = (8 * 8 - 1) / 3; // ((sizeof(u64) in bits) - 1) / 3
 
 /// Refer to an octree node via interleaved integer coordinates
-#[derive(Hash, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Default, Hash, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Morton(u64);
 
 impl Morton {
@@ -66,7 +66,7 @@ impl Morton {
 
     /// Get one of the 8 child nodes of this octree node.
     pub fn child(&self, which: u8) -> Self {
-        Morton((self.0 << 3) | (which as u64))
+        Morton((self.0 << 3) | u64::from(which))
     }
 
     /// The distance from the center of the octree node to the edge (i.e. half the width/height/depth).

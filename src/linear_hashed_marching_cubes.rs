@@ -24,7 +24,7 @@ use std::collections::HashMap;
 const REMAP_CUBE: [usize; 8] = [2, 3, 1, 0, 6, 7, 5, 4];
 
 // Used to compute the diagonal dimension (i.e. 3-dimensional hypotenuse) of a cube.
-const SQRT_OF_3: f32 = 1.73205080757;
+const SQRT_OF_3: f32 = 1.732_050_807_57;
 
 // Uniquely identifies an edge by its terminal vertices
 #[derive(Debug, Hash, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -116,7 +116,7 @@ impl LinearHashedMarchingCubes {
         let octree = self.build_octree(source);
         let primal_vertices = self.compute_primal_vertices(&octree);
         let mut base_index = 0;
-        self.extract_surface(&octree, primal_vertices, indices, &mut base_index, extract);
+        self.extract_surface(&octree, &primal_vertices, indices, &mut base_index, extract);
     }
 
     fn build_octree<S>(&mut self, source: &S) -> LinearHashedOctree<f32>
@@ -170,7 +170,7 @@ impl LinearHashedMarchingCubes {
     fn extract_surface<E>(
         &mut self,
         octree: &LinearHashedOctree<f32>,
-        primal_vertices: HashMap<Morton, usize>,
+        primal_vertices: &HashMap<Morton, usize>,
         indices: &mut Vec<u32>,
         base_index: &mut u32,
         mut extract: E,
@@ -182,7 +182,7 @@ impl LinearHashedMarchingCubes {
         let mut duals = [Morton::new(); 8];
         let mut dual_distances = [0.0; 8];
 
-        for (key, &level) in primal_vertices.iter() {
+        for (key, &level) in primal_vertices {
             for i in 0..8 {
                 let mut m = key.dual_vertex(level, i);
                 while m > Morton::new() {

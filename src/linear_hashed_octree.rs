@@ -55,11 +55,12 @@ impl<Node> LinearHashedOctree<Node> {
     where
         W: FnMut(Morton),
     {
-        for &key in self.leaves.iter() {
+        for &key in &self.leaves {
             walker(key);
         }
     }
 
+    #[inline]
     pub fn get_node(&self, key: &Morton) -> Option<&Node> {
         self.nodes.get(key)
     }

@@ -31,7 +31,7 @@ pub trait HermiteSource: Source {
     fn sample_normal(&self, x: f32, y: f32, z: f32) -> Vec3;
 }
 
-/// Adapts a Source to a HermiteSource by deriving normals from the surface via central differencing
+/// Adapts a `Source` to a `HermiteSource` by deriving normals from the surface via central differencing
 pub struct CentralDifference {
     source: Box<Source>,
     epsilon: f32,
