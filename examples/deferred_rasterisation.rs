@@ -19,9 +19,9 @@ extern crate isosurface;
 
 mod common;
 
+use crate::common::reinterpret_cast_slice;
+use crate::common::sources::Torus;
 use cgmath::{vec3, Matrix4, Point3, SquareMatrix};
-use common::reinterpret_cast_slice;
-use common::sources::Torus;
 use glium::glutin;
 use glium::glutin::{
     dpi::LogicalSize,
