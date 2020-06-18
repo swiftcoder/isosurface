@@ -6,7 +6,7 @@ license = "Apache-2.0"
 description = "Isosurface extraction algorithms"
 repository = "https://github.com/swiftcoder/isosurface"
 readme = "README.md"
-edition = '2018'
+edition = "2018"
 
 [dev-dependencies]
 glium = "^0.26"

@@ -20,10 +20,10 @@ extern crate isosurface;
 
 mod common;
 
+use crate::common::reinterpret_cast_slice;
+use crate::common::sources::{CubeSphere, Torus};
+use crate::common::text::layout_text;
 use cgmath::{vec3, Matrix4, Point3};
-use common::reinterpret_cast_slice;
-use common::sources::{CubeSphere, Torus};
-use common::text::layout_text;
 use glium::backend::Facade;
 use glium::draw_parameters::PolygonMode;
 use glium::glutin;
