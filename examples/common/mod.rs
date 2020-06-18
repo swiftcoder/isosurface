@@ -15,8 +15,8 @@
 pub mod sources;
 pub mod text;
 
-use std::slice;
 use std::mem;
+use std::slice;
 
 /// This is used to reinterpret slices of floats as slices of repr(C) structs, without any
 /// copying. It is optimal, but it is also punching holes in the type system. I hope that Rust
