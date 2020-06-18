@@ -1,6 +1,6 @@
 language: rust
 before_script:
-- rustup component add rustfmt-preview
+- rustup component add rustfmt
 rust:
   - stable
   - beta
@@ -10,6 +10,6 @@ matrix:
     - rust: nightly
   fast_finish: true
 script:
-- cargo fmt --all -- --write-mode=diff
+- cargo fmt --all -- --check
 - cargo build
 - cargo test
