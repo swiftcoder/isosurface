@@ -20,20 +20,23 @@ extern crate isosurface;
 
 mod common;
 
-use glium::glutin;
-use glium::Surface;
-use glium::backend::Facade;
-use glium::index::PrimitiveType;
-use glium::draw_parameters::PolygonMode;
-use glium::glutin::{Api, ControlFlow, ElementState, Event, GlProfile, GlRequest, KeyboardInput,
-                    VirtualKeyCode, WindowEvent};
-use cgmath::{Matrix4, Point3, vec3};
-use isosurface::marching_cubes::MarchingCubes;
-use isosurface::linear_hashed_marching_cubes::LinearHashedMarchingCubes;
-use isosurface::source::CentralDifference;
-use common::sources::{CubeSphere, Torus};
+use cgmath::{vec3, Matrix4, Point3};
 use common::reinterpret_cast_slice;
+use common::sources::{CubeSphere, Torus};
 use common::text::layout_text;
+use glium::backend::Facade;
+use glium::draw_parameters::PolygonMode;
+use glium::glutin;
+use glium::glutin::{
+    dpi::LogicalSize,
+    event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent},
+    Api, GlProfile, GlRequest,
+};
+use glium::index::PrimitiveType;
+use glium::Surface;
+use isosurface::linear_hashed_marching_cubes::LinearHashedMarchingCubes;
+use isosurface::marching_cubes::MarchingCubes;
+use isosurface::source::CentralDifference;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -56,23 +59,37 @@ where
     let mut vertices = vec![];
     let mut indices = vec![];
 
-    let (source, shape_name) = match shape % 2 {
-        0 => (CentralDifference::new(Box::new(Torus {})), "Torus"),
-        _ => (
-            CentralDifference::new(Box::new(CubeSphere {})),
-            "Cube Sphere",
-        ),
+    let torus = CentralDifference::new(Torus {});
+    let cube_sphere = CentralDifference::new(CubeSphere {});
+
+    let shape_name = match shape % 2 {
+        0 => "Torus",
+        _ => "Cube Sphere",
     };
 
     let algorithm_name = match algorithm % 2 {
         0 => {
             let mut marching_cubes = MarchingCubes::new(128);
-            marching_cubes.extract_with_normals(&source, &mut vertices, &mut indices);
+            match shape % 2 {
+                0 => marching_cubes.extract_with_normals(&torus, &mut vertices, &mut indices),
+                _ => marching_cubes.extract_with_normals(&cube_sphere, &mut vertices, &mut indices),
+            }
             "Marching Cubes"
         }
         _ => {
             let mut linear_hashed_marching_cubes = LinearHashedMarchingCubes::new(7);
-            linear_hashed_marching_cubes.extract_with_normals(&source, &mut vertices, &mut indices);
+            match shape % 2 {
+                0 => linear_hashed_marching_cubes.extract_with_normals(
+                    &torus,
+                    &mut vertices,
+                    &mut indices,
+                ),
+                _ => linear_hashed_marching_cubes.extract_with_normals(
+                    &cube_sphere,
+                    &mut vertices,
+                    &mut indices,
+                ),
+            }
             "Linear Hashed Marching Cubes"
         }
     };
@@ -99,10 +116,13 @@ where
 }
 
 fn main() {
-    let mut events_loop = glutin::EventsLoop::new();
-    let window = glutin::WindowBuilder::new()
+    let events_loop = glutin::event_loop::EventLoop::new();
+    let window = glutin::window::WindowBuilder::new()
         .with_title("torus")
-        .with_dimensions(1024, 768);
+        .with_inner_size(LogicalSize {
+            width: 1024.0,
+            height: 768.0,
+        });
     let context = glutin::ContextBuilder::new()
         .with_vsync(true)
         .with_gl_profile(GlProfile::Core)
@@ -117,8 +137,8 @@ fn main() {
         &include_bytes!("fonts/RobotoMono-Regular.ttf")[..],
         24,
         glium_text::FontTexture::ascii_character_list(),
-    ).unwrap();
-    let mut text = glium_text::TextDisplay::new(&text_system, &font, "");
+    )
+    .unwrap();
 
     let mut wireframe = false;
     let mut shape = 0;
@@ -127,8 +147,8 @@ fn main() {
     let mut generated = generate(&display, shape, algorithm);
 
     let program = program!(&display,
-            330 => {
-                vertex: "#version 330
+        330 => {
+            vertex: "#version 330
                     uniform mat4 model_view_projection;
 
                     layout(location=0) in vec3 position;
@@ -141,7 +161,7 @@ fn main() {
                         vNormal = normal;
                     }
                 ",
-                fragment: "#version 330
+            fragment: "#version 330
                     in vec3 vNormal;
 
                     layout(location=0) out vec4 color;
@@ -156,8 +176,9 @@ fn main() {
                         color = vec4(hemisphere(normalize(vNormal)), 1.0);
                     }
                 "
-            },
-        ).expect("failed to compile shaders");
+        },
+    )
+    .expect("failed to compile shaders");
 
     let (view_w, view_h) = display.get_framebuffer_dimensions();
     let aspect = view_w as f32 / view_h as f32;
@@ -171,10 +192,12 @@ fn main() {
     let help_transform = layout_text(50.0, aspect, 1.0, 1.0);
     let label_transform = layout_text(50.0, aspect, 1.0, 50.0 / aspect - 2.0);
 
-    events_loop.run_forever(|event| {
+    events_loop.run(move |event, _, control_flow| {
         match event {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::Closed => return ControlFlow::Break,
+            glutin::event::Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => {
+                    *control_flow = glutin::event_loop::ControlFlow::Exit
+                }
                 WindowEvent::KeyboardInput {
                     input:
                         KeyboardInput {
@@ -184,7 +207,9 @@ fn main() {
                         },
                     ..
                 } => match virtual_keycode {
-                    Some(VirtualKeyCode::Escape) => return ControlFlow::Break,
+                    Some(VirtualKeyCode::Escape) => {
+                        *control_flow = glutin::event_loop::ControlFlow::Exit
+                    }
                     Some(VirtualKeyCode::W) => {
                         wireframe = !wireframe;
                     }
@@ -238,14 +263,15 @@ fn main() {
             )
             .expect("failed to draw to surface");
 
-        text.set_text(&generated.2);
+        let mut text = glium_text::TextDisplay::new(&text_system, &font, &generated.2);
         glium_text::draw(
             &text,
             &text_system,
             &mut surface,
             Into::<[[f32; 4]; 4]>::into(label_transform),
             (1.0, 1.0, 1.0, 1.0),
-        ).expect("failed to render text");
+        )
+        .expect("failed to render text");
 
         text.set_text(HELP_TEXT);
         glium_text::draw(
@@ -254,10 +280,9 @@ fn main() {
             &mut surface,
             Into::<[[f32; 4]; 4]>::into(help_transform),
             (1.0, 1.0, 1.0, 1.0),
-        ).expect("failed to render text");
+        )
+        .expect("failed to render text");
 
         surface.finish().expect("failed to finish rendering frame");
-
-        ControlFlow::Continue
     });
 }

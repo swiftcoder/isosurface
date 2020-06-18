@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use morton::Morton;
+use crate::morton::Morton;
 use std::collections::{HashMap, VecDeque};
 
 pub struct LinearHashedOctree<Node> {

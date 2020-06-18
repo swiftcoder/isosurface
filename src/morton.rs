@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::math::Vec3;
 use std;
-use math::Vec3;
 
 const THREE_2: usize = 9;
 const THREE_1: usize = 3;
@@ -123,7 +123,9 @@ impl Morton {
         let vk = *self + Morton(which as u64);
         let dk = (vk - Morton(k)).0;
 
-        if vk.0 >= k_plus_one || (dk & DILATE_TX) == 0 || (dk & DILATE_TY) == 0
+        if vk.0 >= k_plus_one
+            || (dk & DILATE_TX) == 0
+            || (dk & DILATE_TY) == 0
             || (dk & DILATE_TZ) == 0
         {
             Morton(0)

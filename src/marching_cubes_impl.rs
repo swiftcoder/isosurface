@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use marching_cubes_tables::TRIANGLE_CONNECTION;
+use crate::marching_cubes_tables::TRIANGLE_CONNECTION;
 use std::ops::{Add, Mul};
 
 /// March a single cube, given the 8 corner vertices, and the density at each vertex.

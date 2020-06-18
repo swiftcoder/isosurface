@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use source::{HermiteSource, Source};
-use marching_cubes_tables::CORNERS;
+use crate::marching_cubes_tables::CORNERS;
+use crate::source::{HermiteSource, Source};
 
 /// Extracts point clouds from distance fields.
 pub struct PointCloud {

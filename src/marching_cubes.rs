@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use source::{HermiteSource, Source};
-use index_cache::IndexCache;
-use marching_cubes_impl::{get_offset, interpolate, march_cube};
-use marching_cubes_tables::{CORNERS, EDGE_CONNECTION};
-use math::Vec3;
+use crate::index_cache::IndexCache;
+use crate::marching_cubes_impl::{get_offset, interpolate, march_cube};
+use crate::marching_cubes_tables::{CORNERS, EDGE_CONNECTION};
+use crate::math::Vec3;
+use crate::source::{HermiteSource, Source};
 
 /// Extracts meshes from distance fields using the marching cubes algorithm.
 pub struct MarchingCubes {

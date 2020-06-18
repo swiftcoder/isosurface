@@ -19,17 +19,21 @@ extern crate isosurface;
 
 mod common;
 
+use cgmath::{vec3, Matrix4, Point3, SquareMatrix};
+use common::reinterpret_cast_slice;
+use common::sources::Torus;
 use glium::glutin;
+use glium::glutin::{
+    dpi::LogicalSize,
+    event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent},
+    Api, GlProfile, GlRequest,
+};
+use glium::texture::{
+    DepthFormat, DepthTexture2d, MipmapsOption, Texture2d, UncompressedFloatFormat,
+};
 use glium::Surface;
-use glium::texture::{DepthFormat, DepthTexture2d, MipmapsOption, Texture2d,
-                     UncompressedFloatFormat};
-use glium::glutin::{Api, ControlFlow, ElementState, Event, GlProfile, GlRequest, KeyboardInput,
-                    VirtualKeyCode, WindowEvent};
-use cgmath::{Matrix4, Point3, SquareMatrix, vec3};
 use isosurface::point_cloud::PointCloud;
 use isosurface::source::CentralDifference;
-use common::sources::Torus;
-use common::reinterpret_cast_slice;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -53,10 +57,13 @@ implement_vertex!(VertexWithNormal, position, normal);
 // https://twitter.com/gavanw/status/717265068086308865
 
 fn main() {
-    let mut events_loop = glutin::EventsLoop::new();
-    let window = glutin::WindowBuilder::new()
+    let events_loop = glutin::event_loop::EventLoop::new();
+    let window = glutin::window::WindowBuilder::new()
         .with_title("deferred rasterisation")
-        .with_dimensions(1024, 768);
+        .with_inner_size(LogicalSize {
+            width: 1024.0,
+            height: 768.0,
+        });
     let context = glutin::ContextBuilder::new()
         .with_vsync(true)
         .with_gl_profile(GlProfile::Core)
@@ -65,12 +72,12 @@ fn main() {
     let display =
         glium::Display::new(window, context, &events_loop).expect("failed to create display");
 
-    let (width, height) = display.gl_window().get_inner_size_pixels().unwrap();
+    let (width, height) = display.get_framebuffer_dimensions();
 
     let subdivisions = 64;
 
     let torus = Torus {};
-    let central_difference = CentralDifference::new(Box::new(torus));
+    let central_difference = CentralDifference::new(torus);
 
     let mut vertices = vec![];
     let mut marcher = PointCloud::new(subdivisions);
@@ -85,8 +92,8 @@ fn main() {
     let index_buffer = glium::index::NoIndices(glium::index::PrimitiveType::Points);
 
     let program = program!(&display,
-            330 => {
-                vertex: "#version 330
+        330 => {
+            vertex: "#version 330
                     uniform mat4 model_view_projection;
                     uniform mat4 model;
 
@@ -102,7 +109,7 @@ fn main() {
                         gl_Position = model_view_projection * vec4(position, 1.0);
                     }
                 ",
-                fragment: "#version 330
+            fragment: "#version 330
                     in vec3 vPosition;
                     in vec3 vNormal;
 
@@ -114,8 +121,9 @@ fn main() {
                         normal = vec4(normalize(vNormal), 0.0);
                     }
                 "
-            },
-        ).expect("failed to compile shaders");
+        },
+    )
+    .expect("failed to compile shaders");
 
     let program2 = program!(&display,
             330 => {
@@ -225,21 +233,24 @@ fn main() {
         MipmapsOption::NoMipmap,
         width,
         height,
-    ).unwrap();
+    )
+    .unwrap();
     let normal1 = Texture2d::empty_with_format(
         &display,
         UncompressedFloatFormat::F32F32F32F32,
         MipmapsOption::NoMipmap,
         width,
         height,
-    ).unwrap();
+    )
+    .unwrap();
     let depth1 = DepthTexture2d::empty_with_format(
         &display,
         DepthFormat::F32,
         MipmapsOption::NoMipmap,
         width,
         height,
-    ).unwrap();
+    )
+    .unwrap();
 
     let position2 = Texture2d::empty_with_format(
         &display,
@@ -247,165 +258,170 @@ fn main() {
         MipmapsOption::NoMipmap,
         width,
         height,
-    ).unwrap();
+    )
+    .unwrap();
     let normal2 = Texture2d::empty_with_format(
         &display,
         UncompressedFloatFormat::F32F32F32F32,
         MipmapsOption::NoMipmap,
         width,
         height,
-    ).unwrap();
+    )
+    .unwrap();
 
-    // This extra scope is needed as a workaround for https://github.com/rust-lang/rust/issues/38915
-    {
+    let quad_vertex_buffer = {
+        glium::VertexBuffer::new(
+            &display,
+            &[
+                Vertex {
+                    position: [-1.0, -1.0, 1.0],
+                },
+                Vertex {
+                    position: [1.0, -1.0, 1.0],
+                },
+                Vertex {
+                    position: [1.0, 1.0, 1.0],
+                },
+                Vertex {
+                    position: [-1.0, 1.0, 1.0],
+                },
+            ],
+        )
+        .unwrap()
+    };
+
+    let quad_index_buffer = glium::IndexBuffer::new(
+        &display,
+        glium::index::PrimitiveType::TrianglesList,
+        &[0u16, 1, 2, 0, 2, 3],
+    )
+    .unwrap();
+
+    events_loop.run(move |event, _, control_flow| {
+        match event {
+            glutin::event::Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => {
+                    *control_flow = glutin::event_loop::ControlFlow::Exit
+                }
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode,
+                            ..
+                        },
+                    ..
+                } => match virtual_keycode {
+                    Some(VirtualKeyCode::Escape) => {
+                        *control_flow = glutin::event_loop::ControlFlow::Exit
+                    }
+                    _ => (),
+                },
+                _ => (),
+            },
+            _ => (),
+        }
+
         let mut framebuffer1 = glium::framebuffer::MultiOutputFrameBuffer::with_depth_buffer(
             &display,
             vec![("color", &position1), ("normal", &normal1)],
             &depth1,
-        ).unwrap();
+        )
+        .unwrap();
         let mut framebuffer2 = glium::framebuffer::MultiOutputFrameBuffer::new(
             &display,
             vec![("color", &position2), ("normal", &normal2)],
-        ).unwrap();
+        )
+        .unwrap();
 
-        let quad_vertex_buffer = {
-            glium::VertexBuffer::new(
-                &display,
-                &[
-                    Vertex {
-                        position: [-1.0, -1.0, 1.0],
-                    },
-                    Vertex {
-                        position: [1.0, -1.0, 1.0],
-                    },
-                    Vertex {
-                        position: [1.0, 1.0, 1.0],
-                    },
-                    Vertex {
-                        position: [-1.0, 1.0, 1.0],
-                    },
-                ],
-            ).unwrap()
-        };
+        // First pass, render depth-tested points into the first buffer
+        {
+            framebuffer1.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
 
-        let quad_index_buffer = glium::IndexBuffer::new(
-            &display,
-            glium::index::PrimitiveType::TrianglesList,
-            &[0u16, 1, 2, 0, 2, 3],
-        ).unwrap();
+            let uniforms = uniform! {
+                model_view_projection: Into::<[[f32; 4]; 4]>::into(projection * view * model),
+                model: Into::<[[f32; 4]; 4]>::into(model),
+            };
 
-        events_loop.run_forever(|event| {
-            match event {
-                Event::WindowEvent { event, .. } => match event {
-                    WindowEvent::Closed => return ControlFlow::Break,
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode,
-                                ..
-                            },
-                        ..
-                    } => match virtual_keycode {
-                        Some(VirtualKeyCode::Escape) => return ControlFlow::Break,
-                        _ => (),
-                    },
-                    _ => (),
+            let params = glium::DrawParameters {
+                depth: glium::Depth {
+                    test: glium::DepthTest::IfLess,
+                    write: true,
+                    ..Default::default()
                 },
-                _ => (),
-            }
+                point_size: Some(1.0),
+                ..Default::default()
+            };
 
-            // First pass, render depth-tested points into the first buffer
-            {
-                framebuffer1.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
+            framebuffer1
+                .draw(&vertex_buffer, &index_buffer, &program, &uniforms, &params)
+                .expect("failed to draw to surface");
+        }
 
-                let uniforms = uniform! {
-                    model_view_projection: Into::<[[f32; 4]; 4]>::into(projection * view * model),
-                    model: Into::<[[f32; 4]; 4]>::into(model),
-                };
+        // pass 1 through N-1, ping-pong render both buffers in turn, spreading the points across
+        // the faces of their respective cubes
+        for i in 0..3 {
+            let framebuffer = if i % 2 == 0 {
+                &mut framebuffer2
+            } else {
+                &mut framebuffer1
+            };
+            framebuffer.clear_color(0.0, 0.0, 0.0, 0.0);
 
-                let params = glium::DrawParameters {
-                    depth: glium::Depth {
-                        test: glium::DepthTest::IfLess,
-                        write: true,
-                        ..Default::default()
-                    },
-                    point_size: Some(1.0),
-                    ..Default::default()
-                };
+            let uniforms = uniform! {
+                main_texture: (if i % 2 == 0 {&position1} else {&position2}),
+                main_normal: (if i % 2 == 0 {&normal1} else {&normal2}),
+                direction: [((i+1) % 2) as f32, (i % 2) as f32],
+                voxel_size: 0.5 / (subdivisions as f32),
+                pixel_dims: [1.0 / (width as f32), 1.0 / (height as f32)],
+                view_projection_inverse:
+                    Into::<[[f32; 4]; 4]>::into((projection * view).invert().unwrap()),
+                last: false,
+            };
 
-                framebuffer1
-                    .draw(&vertex_buffer, &index_buffer, &program, &uniforms, &params)
-                    .expect("failed to draw to surface");
-            }
+            framebuffer
+                .draw(
+                    &quad_vertex_buffer,
+                    &quad_index_buffer,
+                    &program2,
+                    &uniforms,
+                    &Default::default(),
+                )
+                .expect("failed to draw to surface");
+        }
 
-            // pass 1 through N-1, ping-pong render both buffers in turn, spreading the points across
-            // the faces of their respective cubes
-            for i in 0..3 {
-                let framebuffer = if i % 2 == 0 {
-                    &mut framebuffer2
-                } else {
-                    &mut framebuffer1
-                };
-                framebuffer.clear_color(0.0, 0.0, 0.0, 0.0);
+        // final pass, composite the last buffer to the screen, performing lighting in the process
+        {
+            let mut surface = display.draw();
+            surface.clear_color_and_depth((0.306, 0.267, 0.698, 0.0), 1.0);
 
-                let uniforms = uniform! {
-                    main_texture: (if i % 2 == 0 {&position1} else {&position2}),
-                    main_normal: (if i % 2 == 0 {&normal1} else {&normal2}),
-                    direction: [((i+1) % 2) as f32, (i % 2) as f32],
-                    voxel_size: 0.5 / (subdivisions as f32),
-                    pixel_dims: [1.0 / (width as f32), 1.0 / (height as f32)],
-                    view_projection_inverse:
-                        Into::<[[f32; 4]; 4]>::into((projection * view).invert().unwrap()),
-                    last: false,
-                };
+            let uniforms = uniform! {
+                main_texture: &position2,
+                main_normal: &normal2,
+                direction: [0f32, 1.0],
+                voxel_size: 0.5 / (subdivisions as f32),
+                pixel_dims: [1.0 / (width as f32), 1.0 / (height as f32)],
+                view_projection_inverse:
+                    Into::<[[f32; 4]; 4]>::into((projection * view).invert().unwrap()),
+                last: true,
+            };
 
-                framebuffer
-                    .draw(
-                        &quad_vertex_buffer,
-                        &quad_index_buffer,
-                        &program2,
-                        &uniforms,
-                        &Default::default(),
-                    )
-                    .expect("failed to draw to surface");
-            }
+            let params = glium::DrawParameters {
+                blend: glium::Blend::alpha_blending(),
+                ..Default::default()
+            };
 
-            // final pass, composite the last buffer to the screen, performing lighting in the process
-            {
-                let mut surface = display.draw();
-                surface.clear_color_and_depth((0.306, 0.267, 0.698, 0.0), 1.0);
+            surface
+                .draw(
+                    &quad_vertex_buffer,
+                    &quad_index_buffer,
+                    &program2,
+                    &uniforms,
+                    &params,
+                )
+                .expect("failed to draw to surface");
 
-                let uniforms = uniform! {
-                    main_texture: &position2,
-                    main_normal: &normal2,
-                    direction: [0f32, 1.0],
-                    voxel_size: 0.5 / (subdivisions as f32),
-                    pixel_dims: [1.0 / (width as f32), 1.0 / (height as f32)],
-                    view_projection_inverse:
-                        Into::<[[f32; 4]; 4]>::into((projection * view).invert().unwrap()),
-                    last: true,
-                };
-
-                let params = glium::DrawParameters {
-                    blend: glium::Blend::alpha_blending(),
-                    ..Default::default()
-                };
-
-                surface
-                    .draw(
-                        &quad_vertex_buffer,
-                        &quad_index_buffer,
-                        &program2,
-                        &uniforms,
-                        &params,
-                    )
-                    .expect("failed to draw to surface");
-
-                surface.finish().expect("failed to finish rendering frame");
-            }
-
-            ControlFlow::Continue
-        });
-    }
+            surface.finish().expect("failed to finish rendering frame");
+        }
+    });
 }

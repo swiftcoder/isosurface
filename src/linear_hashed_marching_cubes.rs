@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use linear_hashed_octree::LinearHashedOctree;
-use morton::Morton;
-use marching_cubes_impl::{get_offset, interpolate, march_cube};
-use marching_cubes_tables::EDGE_CONNECTION;
-use math::Vec3;
-use source::{HermiteSource, Source};
+use crate::linear_hashed_octree::LinearHashedOctree;
+use crate::marching_cubes_impl::{get_offset, interpolate, march_cube};
+use crate::marching_cubes_tables::EDGE_CONNECTION;
+use crate::math::Vec3;
+use crate::morton::Morton;
+use crate::source::{HermiteSource, Source};
 use std::collections::HashMap;
 
 // Morton cube corners are ordered differently to the marching cubes tables, so remap them to match.

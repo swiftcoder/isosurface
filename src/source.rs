@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use math::Vec3;
+use crate::math::Vec3;
 
 /// A source capable of sampling a signed distance field at discrete coordinates.
 pub trait Source {
@@ -32,33 +32,33 @@ pub trait HermiteSource: Source {
 }
 
 /// Adapts a `Source` to a `HermiteSource` by deriving normals from the surface via central differencing
-pub struct CentralDifference {
-    source: Box<Source>,
+pub struct CentralDifference<S: Source> {
+    source: S,
     epsilon: f32,
 }
 
-impl CentralDifference {
+impl<S: Source> CentralDifference<S> {
     /// Create an adaptor from a [Source](trait.Source.html)
-    pub fn new(source: Box<Source>) -> CentralDifference {
-        CentralDifference {
+    pub fn new(source: S) -> Self {
+        Self {
             source,
             epsilon: 0.0001,
         }
     }
 
     /// Create an adaptor from a [Source](trait.Source.html) and an epsilon value
-    pub fn new_with_epsilon(source: Box<Source>, epsilon: f32) -> CentralDifference {
-        CentralDifference { source, epsilon }
+    pub fn new_with_epsilon(source: S, epsilon: f32) -> Self {
+        Self { source, epsilon }
     }
 }
 
-impl Source for CentralDifference {
+impl<S: Source> Source for CentralDifference<S> {
     fn sample(&self, x: f32, y: f32, z: f32) -> f32 {
         self.source.sample(x, y, z)
     }
 }
 
-impl HermiteSource for CentralDifference {
+impl<S: Source> HermiteSource for CentralDifference<S> {
     fn sample_normal(&self, x: f32, y: f32, z: f32) -> Vec3 {
         let v = self.sample(x, y, z);
         let vx = self.sample(x + self.epsilon, y, z);

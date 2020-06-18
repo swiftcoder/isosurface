@@ -35,7 +35,7 @@ impl IndexCache {
 
     /// Put an index in the cache at the given (x, y, edge) coordinate
     pub fn put(&mut self, x: usize, y: usize, edge: usize, index: u32) {
-        if let 4...7 = edge {
+        if let 4..=7 = edge {
             self.layers[1][y * self.size + x][edge - 4] = index;
         }
 
@@ -57,7 +57,7 @@ impl IndexCache {
     /// Retrieve an index from the cache at the given (x, y, edge) coordinate
     pub fn get(&mut self, x: usize, y: usize, edge: usize) -> u32 {
         let result = match edge {
-            0...3 => self.layers[0][y * self.size + x][edge],
+            0..=3 => self.layers[0][y * self.size + x][edge],
             4 => self.rows[0][x][0],
             8 => self.rows[0][x][1],
             9 => self.rows[0][x][2],
