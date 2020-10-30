@@ -53,13 +53,13 @@ impl<S: Source> CentralDifference<S> {
 }
 
 impl<S: Source> Source for CentralDifference<S> {
-    pub fn sample(&self, x: f32, y: f32, z: f32) -> f32 {
+    fn sample(&self, x: f32, y: f32, z: f32) -> f32 {
         self.source.sample(x, y, z)
     }
 }
 
 impl<S: Source> HermiteSource for CentralDifference<S> {
-    pub fn sample_normal(&self, x: f32, y: f32, z: f32) -> Vec3 {
+    fn sample_normal(&self, x: f32, y: f32, z: f32) -> Vec3 {
         let v = self.sample(x, y, z);
         let vx = self.sample(x + self.epsilon, y, z);
         let vy = self.sample(x, y + self.epsilon, z);
