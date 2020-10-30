@@ -47,7 +47,7 @@ impl MarchingCubes {
     where
         S: Source,
     {
-        self.extract_impl(
+        self.extract_with(
             source,
             |v: Vec3| {
                 vertices.push(v.x);
@@ -74,7 +74,7 @@ impl MarchingCubes {
     ) where
         S: HermiteSource,
     {
-        self.extract_impl(
+        self.extract_with(
             source,
             |v: Vec3| {
                 let n = source.sample_normal(v.x, v.y, v.z);
@@ -89,7 +89,14 @@ impl MarchingCubes {
         );
     }
 
-    fn extract_impl<S, E>(&mut self, source: &S, mut extract: E, indices: &mut Vec<u32>)
+    /// Extracts a mesh from the given [`HermiteSource`](../source/trait.HermiteSource.html).
+    ///
+    /// The Source will be sampled in the range (0,0,0) to (1,1,1), with the number of steps
+    /// determined by the size provided to the constructor.
+    ///
+    /// Extracted vertices will be passed to the `extract` closure. Extracted
+    /// triangles will be appended to `indices` as triples of vertex indices.
+    pub fn extract_with<S, E>(&mut self, source: &S, mut extract: E, indices: &mut Vec<u32>)
     where
         S: Source,
         E: FnMut(Vec3) -> (),
