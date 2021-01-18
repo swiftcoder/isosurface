@@ -14,11 +14,19 @@
 
 use crate::math::Vec3;
 
+/// The context in which signed distance fields should be evaluated
+pub enum Norm {
+    /// The L^2 or Euclidean norm is the one you are used to, i.e. where l = sqrt(x^2 + y^2 + z^2).
+    Euclidean,
+    /// The L^∞ or Max norm represents Manhattan/Taxicab distance, i.e. l = max(|x|, |y|, |z|).
+    Max,
+}
+
 /// A source capable of sampling a signed distance field at discrete coordinates.
 pub trait Source {
     /// Samples the distance field at the given (x, y, z) coordinates.
     ///
-    /// Must return the signed distance (i.e. negative for coodinates inside the surface),
+    /// Must return the signed distance (i.e. negative for coordinates inside the surface),
     /// as our Marching Cubes implementation will evaluate the surface at the zero-crossing.
     fn sample(&self, x: f32, y: f32, z: f32) -> f32;
 }
