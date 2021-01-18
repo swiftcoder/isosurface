@@ -48,6 +48,30 @@ impl Vec3 {
             z: 1.0,
         }
     }
+
+    /// Create a vector by taking the absolute value of each component in this vector
+    pub fn abs(&self) -> Self {
+        Self {
+            x: self.x.abs(),
+            y: self.y.abs(),
+            z: self.z.abs(),
+        }
+    }
+
+    /// Sum all of the components in this vector
+    pub fn component_sum(&self) -> f32 {
+        self.x + self.y + self.z
+    }
+
+    /// Find the maximum value out of all components in this vector
+    pub fn component_max(&self) -> f32 {
+        self.x.max(self.y.max(self.z))
+    }
+
+    /// Find the minimum value out of all components in this vector
+    pub fn component_min(&self) -> f32 {
+        self.x.min(self.y.min(self.z))
+    }
 }
 
 impl std::ops::Add for Vec3 {
@@ -81,11 +105,34 @@ impl std::ops::Mul<f32> for Vec3 {
         Vec3::new(self.x * other, self.y * other, self.z * other)
     }
 }
+impl std::ops::Mul<Vec3> for f32 {
+    type Output = Vec3;
+
+    fn mul(self, other: Vec3) -> Vec3 {
+        Vec3::new(self * other.x, self * other.y, self * other.z)
+    }
+}
 
 impl std::ops::Div for Vec3 {
     type Output = Vec3;
 
     fn div(self, other: Vec3) -> Vec3 {
         Vec3::new(self.x / other.x, self.y / other.y, self.z / other.z)
+    }
+}
+
+impl std::ops::Div<f32> for Vec3 {
+    type Output = Vec3;
+
+    fn div(self, other: f32) -> Vec3 {
+        Vec3::new(self.x / other, self.y / other, self.z / other)
+    }
+}
+
+impl std::ops::Div<Vec3> for f32 {
+    type Output = Vec3;
+
+    fn div(self, other: Vec3) -> Vec3 {
+        Vec3::new(self / other.x, self / other.y, self / other.z)
     }
 }
