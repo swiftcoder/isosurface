@@ -33,7 +33,7 @@ pub trait HermiteSource: Source {
 
 /// Adapts a `Source` to a `HermiteSource` by deriving normals from the surface via central differencing
 pub struct CentralDifference<S: Source> {
-    source: S,
+    pub source: S,
     epsilon: f32,
 }
 
