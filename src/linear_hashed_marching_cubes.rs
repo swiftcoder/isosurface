@@ -17,7 +17,7 @@ use crate::marching_cubes_impl::{get_offset, interpolate, march_cube};
 use crate::marching_cubes_tables::EDGE_CONNECTION;
 use crate::math::Vec3;
 use crate::morton::Morton;
-use crate::source::{HermiteSource, Source};
+use crate::source::{HermiteSource, Norm, Source};
 use std::collections::HashMap;
 
 // Morton cube corners are ordered differently to the marching cubes tables, so remap them to match.
@@ -43,15 +43,29 @@ impl Edge {
 /// Extracts meshes from distance fields using marching cubes over a linear hashed octree.
 pub struct LinearHashedMarchingCubes {
     max_depth: usize,
+    norm: Norm,
 }
 
 impl LinearHashedMarchingCubes {
     /// Create a new LinearHashedMarchingCubes.
     ///
     /// The depth of the internal octree will be at most `max_depth`, causing the tree to span the
-    /// equivalent of a cubic grid at most `2.pow(max_depth)` in either direction.
+    /// equivalent of a cubic grid at most `2.pow(max_depth)` in either direction. Distances
+    /// will be evaluated in Euclidean space.
     pub fn new(max_depth: usize) -> Self {
-        Self { max_depth }
+        Self {
+            max_depth,
+            norm: Norm::Euclidean,
+        }
+    }
+
+    /// Create a new LinearHashedMarchingCubes.
+    ///
+    /// The depth of the internal octree will be at most `max_depth`, causing the tree to span the
+    /// equivalent of a cubic grid at most `2.pow(max_depth)` in either direction. Distances will
+    /// be evaluated in accordance with the provided Norm.
+    pub fn with_norm(max_depth: usize, norm: Norm) -> Self {
+        Self { max_depth, norm }
     }
 
     /// Extracts a mesh from the given [`Source`](../source/trait.Source.html).
@@ -119,6 +133,13 @@ impl LinearHashedMarchingCubes {
         self.extract_surface(&octree, &primal_vertices, indices, &mut base_index, extract);
     }
 
+    fn diagonal(&self, distance: f32) -> f32 {
+        match self.norm {
+            Norm::Euclidean => distance * SQRT_OF_3,
+            Norm::Max => distance,
+        }
+    }
+
     fn build_octree<S>(&mut self, source: &S) -> LinearHashedOctree<f32>
     where
         S: Source,
@@ -130,7 +151,7 @@ impl LinearHashedMarchingCubes {
             |key: Morton, distance: &f32| {
                 let level = key.level();
                 let size = key.size();
-                level < 2 || (level < max_depth && distance.abs() <= size * SQRT_OF_3)
+                level < 2 || (level < max_depth && distance.abs() <= self.diagonal(size))
             },
             |key: Morton| {
                 let p = key.center();
