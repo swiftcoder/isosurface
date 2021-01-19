@@ -1,17 +1,26 @@
 [package]
-name = "isosurface"
-version = "0.0.4"
 authors = ["Tristam MacDonald <swiftcoder@gmail.com>"]
-license = "Apache-2.0"
 description = "Isosurface extraction algorithms"
-repository = "https://github.com/swiftcoder/isosurface"
-readme = "README.md"
 edition = "2018"
+license = "Apache-2.0"
+name = "isosurface"
+readme = "README.md"
+repository = "https://github.com/swiftcoder/isosurface"
+version = "0.0.4"
 
 [dev-dependencies]
+cgmath = "^0.17"
+criterion = "0.3"
 glium = "^0.26"
 glium_text_rusttype = "^0.3"
-cgmath = "^0.17"
 
 [profile.dev]
 opt-level = 2
+
+[profile.release]
+opt-level = 3
+lto = true
+
+[[bench]]
+name = "isosurface"
+harness = false
