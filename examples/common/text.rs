@@ -1,4 +1,4 @@
-// Copyright 2018 Tristam MacDonald
+// Copyright 2021 Tristam MacDonald
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +13,11 @@
 // limitations under the License.
 
 //! Conveniences to make the `glium_text` API easier to use in samples.
-
 use cgmath::{Matrix4, Vector3};
 
-/// Produce a transform matrix that will display text at offset column `x`, row `y`, in a
-/// display-filling coordinate space N characters wide and N*aspect rows high.
+/// Produce a transform matrix that will display text at offset column `x`, row
+/// `y`, in a display-filling coordinate space N characters wide and N*aspect
+/// rows high.
 pub fn layout_text(characters_per_row: f32, aspect: f32, x: f32, y: f32) -> Matrix4<f32> {
     let inv_scale = 2.0 / characters_per_row;
     Matrix4::from_translation(Vector3::new(-1.0, -1.0, 0.0))

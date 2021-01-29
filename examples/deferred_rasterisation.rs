@@ -1,4 +1,4 @@
-// Copyright 2018 Tristam MacDonald
+// Copyright 2021 Tristam MacDonald
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,21 +19,22 @@ extern crate isosurface;
 
 mod common;
 
-use crate::common::reinterpret_cast_slice;
-use crate::common::sources::Torus;
+use crate::common::{reinterpret_cast_slice, sources::DemoSource};
 use cgmath::{vec3, Matrix4, Point3, SquareMatrix};
-use glium::glutin;
-use glium::glutin::{
-    dpi::LogicalSize,
-    event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent},
-    Api, GlProfile, GlRequest,
+use glium::{
+    glutin::{
+        self,
+        dpi::LogicalSize,
+        event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent},
+        Api, GlProfile, GlRequest,
+    },
+    texture::{DepthFormat, DepthTexture2d, MipmapsOption, Texture2d, UncompressedFloatFormat},
+    Surface,
 };
-use glium::texture::{
-    DepthFormat, DepthTexture2d, MipmapsOption, Texture2d, UncompressedFloatFormat,
+use isosurface::{
+    distance::Signed, extractor::OnlyInterleavedNormals, implicit::Torus, sampler::Sampler,
+    source::CentralDifference, PointCloud,
 };
-use glium::Surface;
-use isosurface::point_cloud::PointCloud;
-use isosurface::source::CentralDifference;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -52,9 +53,9 @@ struct VertexWithNormal {
 
 implement_vertex!(VertexWithNormal, position, normal);
 
-// This technique is derived from an image tweeted by Gavan Woolery (gavanw@). it needs some
-// refinement, but I think I've captured an approximation of his rendering technique.
-// https://twitter.com/gavanw/status/717265068086308865
+// This technique is derived from an image tweeted by Gavan Woolery (gavanw@).
+// it needs some refinement, but I think I've captured an approximation of his
+// rendering technique. https://twitter.com/gavanw/status/717265068086308865
 
 fn main() {
     let events_loop = glutin::event_loop::EventLoop::new();
@@ -76,13 +77,15 @@ fn main() {
 
     let subdivisions = 64;
 
-    let torus = Torus {};
+    let torus = DemoSource::new(Torus::new(0.25, 0.1));
     let central_difference = CentralDifference::new(torus);
+    let sampler = Sampler::new(&central_difference);
 
     let mut vertices = vec![];
-    let mut marcher = PointCloud::new(subdivisions);
+    let mut extractor = OnlyInterleavedNormals::new(&mut vertices, &sampler);
+    let mut marcher = PointCloud::<Signed>::new(subdivisions);
 
-    marcher.extract_midpoints_with_normals(&central_difference, &mut vertices);
+    marcher.extract(&sampler, &mut extractor);
 
     let vertex_buffer: glium::VertexBuffer<VertexWithNormal> = {
         glium::VertexBuffer::new(&display, reinterpret_cast_slice(&vertices))
@@ -226,7 +229,8 @@ fn main() {
     );
     let model = Matrix4::identity();
 
-    // We need two textures to ping-pong between, and one of them needs an attached depth buffer for the initial pass
+    // We need two textures to ping-pong between, and one of them needs an attached
+    // depth buffer for the initial pass
     let position1 = Texture2d::empty_with_format(
         &display,
         UncompressedFloatFormat::F32F32F32F32,
@@ -358,8 +362,8 @@ fn main() {
                 .expect("failed to draw to surface");
         }
 
-        // pass 1 through N-1, ping-pong render both buffers in turn, spreading the points across
-        // the faces of their respective cubes
+        // pass 1 through N-1, ping-pong render both buffers in turn, spreading the
+        // points across the faces of their respective cubes
         for i in 0..3 {
             let framebuffer = if i % 2 == 0 {
                 &mut framebuffer2
@@ -390,7 +394,8 @@ fn main() {
                 .expect("failed to draw to surface");
         }
 
-        // final pass, composite the last buffer to the screen, performing lighting in the process
+        // final pass, composite the last buffer to the screen, performing lighting in
+        // the process
         {
             let mut surface = display.draw();
             surface.clear_color_and_depth((0.306, 0.267, 0.698, 0.0), 1.0);

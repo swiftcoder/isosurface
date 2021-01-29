@@ -1,4 +1,4 @@
-// Copyright 2018 Tristam MacDonald
+// Copyright 2021 Tristam MacDonald
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 use crate::math::Vec3;
 use std;
 
@@ -69,7 +68,8 @@ impl Morton {
         Morton((self.0 << 3) | u64::from(which))
     }
 
-    /// The distance from the center of the octree node to the edge (i.e. half the width/height/depth).
+    /// The distance from the center of the octree node to the edge (i.e. half
+    /// the width/height/depth).
     pub fn size(&self) -> f32 {
         1.0 / ((2 << self.level()) as f32)
     }
@@ -115,7 +115,8 @@ impl Morton {
         )
     }
 
-    /// Assuming that self is a point on the dual mesh, finds the 8 corresponding vertices on the primal mesh.
+    /// Assuming that self is a point on the dual mesh, finds the 8
+    /// corresponding vertices on the primal mesh.
     pub fn primal_vertex(&self, level: usize, which: usize) -> Morton {
         let k = 1 << (3 * level);
         let k_plus_one = k << 1;
@@ -134,7 +135,8 @@ impl Morton {
         }
     }
 
-    /// Assuming that self is a point on the primal mesh, finds the 8 corresponding vertices on the dual mesh.
+    /// Assuming that self is a point on the primal mesh, finds the 8
+    /// corresponding vertices on the dual mesh.
     pub fn dual_vertex(&self, level: usize, which: usize) -> Morton {
         let dk = Morton(self.0 >> (3 * (MAX_LEVEL - level)));
 

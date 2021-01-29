@@ -1,4 +1,4 @@
-// Copyright 2018 Tristam MacDonald
+// Copyright 2021 Tristam MacDonald
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 extern crate cgmath;
 #[macro_use]
 extern crate glium;
@@ -20,23 +19,32 @@ extern crate isosurface;
 
 mod common;
 
-use crate::common::reinterpret_cast_slice;
-use crate::common::sources::{CubeSphere, Torus};
-use crate::common::text::layout_text;
-use cgmath::{vec3, Matrix4, Point3};
-use glium::backend::Facade;
-use glium::draw_parameters::PolygonMode;
-use glium::glutin;
-use glium::glutin::{
-    dpi::LogicalSize,
-    event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent},
-    Api, GlProfile, GlRequest,
+use crate::{
+    common::reinterpret_cast_slice, common::sources::DemoSource, common::text::layout_text,
 };
+use cgmath::{vec3, Matrix4, Point3};
 use glium::index::PrimitiveType;
 use glium::Surface;
-use isosurface::linear_hashed_marching_cubes::LinearHashedMarchingCubes;
-use isosurface::marching_cubes::MarchingCubes;
-use isosurface::source::CentralDifference;
+use glium::{
+    backend::Facade,
+    draw_parameters::PolygonMode,
+    glutin::{
+        self,
+        dpi::LogicalSize,
+        event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent},
+        Api, GlProfile, GlRequest,
+    },
+};
+use isosurface::{
+    distance::Signed,
+    extractor::IndexedInterleavedNormals,
+    feature::ParticleBasedMinimisation,
+    implicit::{Cylinder, Difference, Intersection, RectangularPrism, Sphere, Torus, Union},
+    math::Vec3,
+    sampler::Sampler,
+    source::CentralDifference,
+    DualContouring, ExtendedMarchingCubes, LinearHashedMarchingCubes, MarchingCubes,
+};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -48,49 +56,72 @@ struct Vertex {
 implement_vertex!(Vertex, position, normal);
 
 const HELP_TEXT: &'static str =
-    "Press [A] to switch Algorithm, [S] to switch Shape, or [W] to toggle Wireframe";
+    "Press [A] to change Algorithm, [S] Shape, [C] Complexity, [N] Normals, or [W] Wireframe";
 
 struct GenerateResult(glium::VertexBuffer<Vertex>, glium::IndexBuffer<u32>, String);
 
-fn generate<F>(display: &F, shape: usize, algorithm: usize) -> GenerateResult
+fn generate<F>(display: &F, shape: usize, algorithm: usize, complexity: usize) -> GenerateResult
 where
     F: Facade,
 {
     let mut vertices = vec![];
     let mut indices = vec![];
 
-    let torus = CentralDifference::new(Torus {});
-    let cube_sphere = CentralDifference::new(CubeSphere {});
+    let sources = [
+        (DemoSource::new(Torus::new(0.25, 0.1)), "Torus"),
+        (DemoSource::new(Sphere::new(0.3)), "Sphere"),
+        (
+            DemoSource::new(RectangularPrism::new(Vec3::from_scalar(0.2))),
+            "Box",
+        ),
+        (DemoSource::new(Cylinder::new(0.25, 0.2)), "Cylinder"),
+        (
+            DemoSource::new(CentralDifference::new(Union::new(
+                Difference::new(
+                    Sphere::new(0.25),
+                    RectangularPrism::new(Vec3::from_scalar(0.2)),
+                ),
+                Cylinder::new(0.02, 0.25),
+            ))),
+            "Sphere subtracted from Cube",
+        ),
+        (
+            DemoSource::new(CentralDifference::new(Intersection::new(
+                Sphere::new(0.3),
+                RectangularPrism::new(Vec3::from_scalar(0.2)),
+            ))),
+            "Sphere intersected with Cube",
+        ),
+    ];
 
-    let shape_name = match shape % 2 {
-        0 => "Torus",
-        _ => "Cube Sphere",
-    };
+    let (source, shape_name) = &sources[shape % sources.len()];
+    let sampler = Sampler::new(source);
 
-    let algorithm_name = match algorithm % 2 {
+    let max_level = 3 + complexity % 5;
+    let grid_size = 2usize.pow(max_level as u32);
+
+    let mut extractor = IndexedInterleavedNormals::new(&mut vertices, &mut indices, &sampler);
+
+    let algorithm_name = match algorithm % 4 {
         0 => {
-            let mut marching_cubes = MarchingCubes::new(128);
-            match shape % 2 {
-                0 => marching_cubes.extract_with_normals(&torus, &mut vertices, &mut indices),
-                _ => marching_cubes.extract_with_normals(&cube_sphere, &mut vertices, &mut indices),
-            }
+            let mut marching_cubes = MarchingCubes::<Signed>::new(grid_size);
+            marching_cubes.extract(&sampler, &mut extractor);
             "Marching Cubes"
         }
-        _ => {
-            let mut linear_hashed_marching_cubes = LinearHashedMarchingCubes::new(7);
-            match shape % 2 {
-                0 => linear_hashed_marching_cubes.extract_with_normals(
-                    &torus,
-                    &mut vertices,
-                    &mut indices,
-                ),
-                _ => linear_hashed_marching_cubes.extract_with_normals(
-                    &cube_sphere,
-                    &mut vertices,
-                    &mut indices,
-                ),
-            }
+        1 => {
+            let mut linear_hashed_marching_cubes = LinearHashedMarchingCubes::new(max_level);
+            linear_hashed_marching_cubes.extract(&sampler, &mut extractor);
             "Linear Hashed Marching Cubes"
+        }
+        2 => {
+            let mut extended_marching_cubes = ExtendedMarchingCubes::new(grid_size);
+            extended_marching_cubes.extract(&sampler, &mut extractor);
+            "Extended Marching Cubes"
+        }
+        _ => {
+            let mut dual_contouring = DualContouring::new(grid_size, ParticleBasedMinimisation {});
+            dual_contouring.extract(&sampler, &mut extractor);
+            "Dual Contouring"
         }
     };
 
@@ -106,9 +137,11 @@ where
         vertex_buffer,
         index_buffer,
         format!(
-            "{} - {}. {} vertices {} triangles",
+            "{} - {} with {} octree levels, {} grid size, {} vertices, {} triangles",
             shape_name,
             algorithm_name,
+            max_level,
+            grid_size,
             vertices.len() / 6,
             indices.len() / 3
         ),
@@ -143,8 +176,10 @@ fn main() {
     let mut wireframe = false;
     let mut shape = 0;
     let mut algorithm = 0;
+    let mut complexity = 4;
+    let mut show_normals = false;
 
-    let mut generated = generate(&display, shape, algorithm);
+    let mut generated = generate(&display, shape, algorithm, complexity);
 
     let program = program!(&display,
         330 => {
@@ -162,6 +197,8 @@ fn main() {
                     }
                 ",
             fragment: "#version 330
+                    uniform float show_normals;
+
                     in vec3 vNormal;
 
                     layout(location=0) out vec4 color;
@@ -169,11 +206,15 @@ fn main() {
                     vec3 hemisphere(vec3 normal) {
                         const vec3 light = vec3(0.1, -1.0, 0.0);
                         float NdotL = dot(normal, light)*0.5 + 0.5;
-                        return mix(vec3(0.886, 0.757, 0.337), vec3(0.518, 0.169, 0.0), NdotL);
+                        return mix(vec3(0.3605, 0.2176, 0.005), vec3(0.7381, 0.531, 0.1003), NdotL);
                     }
 
                     void main() {
-                        color = vec4(hemisphere(normalize(vNormal)), 1.0);
+                        if (show_normals > 0.5) {
+                            color = vec4(normalize(vNormal)*0.5 + 0.5, 1.0);
+                        } else {
+                            color = vec4(hemisphere(normalize(vNormal)), 1.0);
+                        }
                     }
                 "
         },
@@ -189,8 +230,8 @@ fn main() {
         vec3(0.0, 1.0, 0.0),
     );
 
-    let help_transform = layout_text(50.0, aspect, 1.0, 1.0);
-    let label_transform = layout_text(50.0, aspect, 1.0, 50.0 / aspect - 2.0);
+    let help_transform = layout_text(65.0, aspect, 1.0, 1.0);
+    let label_transform = layout_text(65.0, aspect, 1.0, 65.0 / aspect - 2.0);
 
     events_loop.run(move |event, _, control_flow| {
         match event {
@@ -215,11 +256,18 @@ fn main() {
                     }
                     Some(VirtualKeyCode::A) => {
                         algorithm += 1;
-                        generated = generate(&display, shape, algorithm);
+                        generated = generate(&display, shape, algorithm, complexity);
                     }
                     Some(VirtualKeyCode::S) => {
                         shape += 1;
-                        generated = generate(&display, shape, algorithm);
+                        generated = generate(&display, shape, algorithm, complexity);
+                    }
+                    Some(VirtualKeyCode::C) => {
+                        complexity += 1;
+                        generated = generate(&display, shape, algorithm, complexity);
+                    }
+                    Some(VirtualKeyCode::N) => {
+                        show_normals = !show_normals;
                     }
                     _ => (),
                 },
@@ -229,10 +277,11 @@ fn main() {
         }
 
         let mut surface = display.draw();
-        surface.clear_color_and_depth((0.024, 0.184, 0.337, 0.0), 1.0);
+        surface.clear_color_and_depth((0.011, 0.0089, 0.1622, 0.0), 1.0);
 
         let uniforms = uniform! {
             model_view_projection: Into::<[[f32; 4]; 4]>::into(projection * view),
+            show_normals: if show_normals {1.0f32} else {0.0},
         };
 
         let polygon_mode = if wireframe {
