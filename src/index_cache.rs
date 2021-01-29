@@ -1,4 +1,4 @@
-// Copyright 2018 Tristam MacDonald
+// Copyright 2021 Tristam MacDonald
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,91 +11,64 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use crate::{marching_cubes_tables::EDGE_CONNECTION, morton::Morton};
+use std::{cmp::Eq, collections::HashMap, hash::Hash};
 
-/// Tracks vertex indices to avoid emitting duplicate vertices during marching cubes mesh generation
-pub struct IndexCache {
-    size: usize,
-    layers: [Vec<[u32; 4]>; 2],
-    rows: [Vec<[u32; 3]>; 2],
-    cells: [[u32; 2]; 2],
-    current_cell: [u32; 12],
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct GridKey((usize, usize, usize), (usize, usize, usize));
+
+#[derive(Debug, Hash, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct MortonKey(Morton, Morton);
+
+/// Tracks vertex indices to avoid emitting duplicate vertices during marching
+/// cubes mesh generation
+pub struct IndexCache<K: Eq + Hash, I: Clone> {
+    indices: HashMap<K, I>,
 }
 
-impl IndexCache {
-    /// Create a new IndexCache for the given chunk size
-    pub fn new(size: usize) -> IndexCache {
-        IndexCache {
-            size,
-            layers: [vec![[0; 4]; size * size], vec![[0; 4]; size * size]],
-            rows: [vec![[0; 3]; size], vec![[0; 3]; size]],
-            cells: [[0; 2]; 2],
-            current_cell: [0; 12],
+impl<K: Eq + Hash, I: Clone> IndexCache<K, I> {
+    /// Create a new IndexCache
+    pub fn new() -> Self {
+        Self {
+            indices: HashMap::new(),
         }
     }
 
-    /// Put an index in the cache at the given (x, y, edge) coordinate
-    pub fn put(&mut self, x: usize, y: usize, edge: usize, index: u32) {
-        if let 4..=7 = edge {
-            self.layers[1][y * self.size + x][edge - 4] = index;
-        }
-
-        match edge {
-            6 => self.rows[1][x][0] = index,
-            11 => self.rows[1][x][1] = index,
-            10 => self.rows[1][x][2] = index,
-            _ => (),
-        }
-
-        match edge {
-            5 | 10 => self.cells[1][0] = index,
-            _ => (),
-        }
-
-        self.current_cell[edge] = index;
+    /// Put an index in the cache at the given (x, y, z, edge) coordinate
+    pub fn put(&mut self, key: K, index: I) {
+        self.indices.insert(key, index);
     }
 
-    /// Retrieve an index from the cache at the given (x, y, edge) coordinate
-    pub fn get(&mut self, x: usize, y: usize, edge: usize) -> u32 {
-        let result = match edge {
-            0..=3 => self.layers[0][y * self.size + x][edge],
-            4 => self.rows[0][x][0],
-            8 => self.rows[0][x][1],
-            9 => self.rows[0][x][2],
-            7 | 11 => self.cells[0][1],
-            _ => 0,
-        };
+    /// Retrieve an index from the cache at the given (x, y, z, edge) coordinate
+    pub fn get(&self, key: K) -> Option<I> {
+        self.indices.get(&key).cloned()
+    }
+}
 
-        if result > 0 {
-            result
+impl GridKey {
+    pub fn new(corners: &[(usize, usize, usize); 8], edge: usize) -> Self {
+        let [u, v] = EDGE_CONNECTION[edge];
+
+        let a = corners[u];
+        let b = corners[v];
+
+        if a > b {
+            Self(b, a)
         } else {
-            self.current_cell[edge]
+            Self(a, b)
         }
     }
+}
 
-    /// Update the cache when mesh extraction moves to the next cell
-    pub fn advance_cell(&mut self) {
-        self.cells.swap(0, 1);
-        for i in &mut self.current_cell {
-            *i = 0;
-        }
-    }
+impl MortonKey {
+    pub fn new(corners: &[Morton; 8], edge: usize) -> Self {
+        let [u, v] = EDGE_CONNECTION[edge];
+        let (a, b) = (corners[u], corners[v]);
 
-    /// Update the cache when mesh extraction moves to the next row
-    pub fn advance_row(&mut self) {
-        self.rows.swap(0, 1);
-        for i in &mut self.cells[0] {
-            *i = 0;
-        }
-    }
-
-    /// Update the cache when mesh extraction moves to the next layer
-    pub fn advance_layer(&mut self) {
-        self.layers.swap(0, 1);
-        for i in &mut self.cells[0] {
-            *i = 0;
-        }
-        for i in &mut self.rows[0] {
-            *i = [0; 3];
+        if a > b {
+            Self(b, a)
+        } else {
+            Self(a, b)
         }
     }
 }

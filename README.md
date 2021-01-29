@@ -1,22 +1,27 @@
 # Isosurface
-Isosurface extraction algorithms for Rust. Currently only a few techniques are implemented.
+Isosurface extraction algorithms implemented in Rust. The classical Marching Cubes and Dual Contouring techniques are included, along with more modern variations on the theme.
 
-This crate intentionally has no dependencies to keep the footprint of the library small. The examples rely on the `glium`, `glium_text_rusttype`, and `cgmath` crates.
+In the interest of education, the documentation for each extraction algorithm links to the relevant academic papers.
 
-# Marching Cubes
-The Marching Cubes implementation produces perfectly indexed meshes with few duplicate vertices, through the use of a (fairly involved) index caching system. The complexity of the cache could no doubt be reduced through some clever arithmetic, but it is not currently a bottleneck.
+## Example programs
+`cargo run --example sampler` will execute the sampler, which allows you to compare a variety of algorithms and implicit surfaces.
 
-The implementation has been optimised for performance, with memory use kept as a low as possible considering. For an NxNxN voxel chunk, it will allocate roughly NxN of f32 storage for isosurface values, and Nx(N+1) of u32 storage for the index cache.
+ `cargo run --example deferred_rasterisation` will execute a demonstration of GPU-side deferred rasterisation from point clouds. This is a technique pioneered by Gavan Woolery, of [Voxel Quest](https://www.voxelquest.com) fame.
 
-Indices are 32-bit because for chunks of 32x32 and larger you'll typically end up with more than 65k vertices. If you are targeting a mobile platform that supports only 16-bit indices, you'll need to use smaller chunk sizes, and truncate on the output side.
+## Dependencies
+This library intentionally has no dependencies. While that requires some redevelopment of common code (i.e. the Vec3 type), it keeps the footprint of the library small, and compile times low for consuming crates. The examples do however rely on the `glium`, `glium_text_rusttype`, and `cgmath` crates, to avoid reinventing the world.
 
-# Linear Hashed Marching Cubes
-A very efficient algorithm using interleaved integer coordinates to represent octree cells, and storing them in a hash table. Results in better mesh quality than regular marching cubes, and is significantly faster. Memory usage is less predictable, but shouldn't be significantly higher than standard marching cubes.
- 
-# Point Clouds and Deferred Rasterisation
-Point cloud extraction is typically not all that useful, given that point clouds don't contain any data about the actual surface. However, Gavan Woolery (gavanw@) posted an interesting image of reconstructing surface data in image space on the GPU, so I've added a simple example of that.  
+## 32-bit indices
+For simplicity vertex indices have been fixed at 32-bits, because for chunks of 32x32x32 and larger you'll often end up with more than 65k vertices. If you are targeting a mobile platform that supports only 16-bit indices, you'll need to keep to smaller chunk sizes, or split the mesh on the output side.
 
-# Why are optimisations enabled in debug builds?
-Without optimisations enabled, debug builds are 70x slower (1 minute to extract a 256^3 volume, versus ~800 milliseconds). 
+## Why are optimisations enabled in debug builds?
+Without optimisations enabled, debug builds are around 70x slower. The implementation relies on a lot of nested for loops over integer ranges, and the range iterators themselves entirely dominate the CPU profiles in unoptimised builds.
 
-The marching cubes implementation relies on a lot of nested for loops over integer ranges, and the range iterators themselves entirely dominate the CPU profiles in unoptimised builds. While this could likely be worked around by converting the `for 0..8` style of loop to a while loop with manual counter, that seems ugly and distinctly not in the spirit of rust. I'd rather leave optimisations enabled, and wait for the compiler to become better at handling iterators.
+While this can be worked around by converting the `for 0..8` style of loop to a while loop with manual counter, the result is quite unpleasant, and distinctly not in the spirit of rust. I'd rather leave optimisations enabled, and wait for the compiler to become better at handling iterators in debug builds.
+
+If you take a dependency on this crate and run into the same issue, you can tell Cargo to compile just this one crate in release mode, by adding the following to your `Cargo.toml`:
+
+```
+[profile.dev.package.isosurface]
+opt-level = 3
+```

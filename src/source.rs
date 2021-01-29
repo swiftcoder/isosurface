@@ -1,4 +1,4 @@
-// Copyright 2018 Tristam MacDonald
+// Copyright 2021 Tristam MacDonald
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,68 +11,81 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use crate::{
+    distance::{Directed, Signed},
+    math::Vec3,
+};
 
-use crate::math::Vec3;
-
-/// The context in which signed distance fields should be evaluated
-pub enum Norm {
-    /// The L^2 or Euclidean norm is the one you are used to, i.e. where l = sqrt(x^2 + y^2 + z^2).
-    Euclidean,
-    /// The L^∞ or Max norm represents Manhattan/Taxicab distance, i.e. l = max(|x|, |y|, |z|).
-    Max,
-}
-
-/// A source capable of sampling a signed distance field at discrete coordinates.
-pub trait Source {
+/// A source capable of sampling a signed distance field at discrete
+/// coordinates.
+pub trait ScalarSource {
     /// Samples the distance field at the given (x, y, z) coordinates.
     ///
-    /// Must return the signed distance (i.e. negative for coordinates inside the surface),
-    /// as our Marching Cubes implementation will evaluate the surface at the zero-crossing.
-    fn sample(&self, x: f32, y: f32, z: f32) -> f32;
+    /// Must return the signed distance (i.e. negative for coordinates inside
+    /// the surface), as our Marching Cubes implementation will evaluate the
+    /// surface at the zero-crossing.
+    fn sample_scalar(&self, p: Vec3) -> Signed;
 }
 
-/// A source capable of evaluating the normal vector to a signed distance field at discrete coordinates.
-pub trait HermiteSource: Source {
+/// A source capable of sampling a directed distance field at discrete
+/// coordinates.
+pub trait VectorSource {
+    /// Samples the directed distance field at the given (x, y, z) coordinates.
+    ///
+    /// Must return the signed distance (i.e. negative for coordinates inside
+    /// the surface), as our Marching Cubes implementation will evaluate the
+    /// surface at the zero-crossing.
+    fn sample_vector(&self, p: Vec3) -> Directed;
+}
+
+/// A source capable of evaluating the normal vector to a distance field
+/// at discrete coordinates.
+pub trait HermiteSource: ScalarSource {
     /// Samples the distance field at the given (x, y, z) coordinates.
     ///
     /// Must return a normal vector to the surface.
-    fn sample_normal(&self, x: f32, y: f32, z: f32) -> Vec3;
+    fn sample_normal(&self, p: Vec3) -> Vec3;
 }
 
-/// Adapts a `Source` to a `HermiteSource` by deriving normals from the surface via central differencing
-pub struct CentralDifference<S: Source> {
+/// Adapts a [ScalarSource] to a [HermiteSource] by deriving normals from the
+/// surface via central differencing.
+pub struct CentralDifference<S: ScalarSource> {
     pub source: S,
     epsilon: f32,
 }
 
-impl<S: Source> CentralDifference<S> {
-    /// Create an adaptor from a [Source](trait.Source.html)
+impl<S: ScalarSource> CentralDifference<S> {
+    /// Create an adaptor from a [ScalarSource].
     pub fn new(source: S) -> Self {
-        Self {
-            source,
-            epsilon: 0.0001,
-        }
+        Self::new_with_epsilon(source, 0.000001)
     }
 
-    /// Create an adaptor from a [Source](trait.Source.html) and an epsilon value
+    /// Create an adaptor from a [ScalarSource] and an epsilon
+    /// value.
     pub fn new_with_epsilon(source: S, epsilon: f32) -> Self {
         Self { source, epsilon }
     }
 }
 
-impl<S: Source> Source for CentralDifference<S> {
-    fn sample(&self, x: f32, y: f32, z: f32) -> f32 {
-        self.source.sample(x, y, z)
+impl<S: ScalarSource> ScalarSource for CentralDifference<S> {
+    fn sample_scalar(&self, p: Vec3) -> Signed {
+        self.source.sample_scalar(p)
     }
 }
 
-impl<S: Source> HermiteSource for CentralDifference<S> {
-    fn sample_normal(&self, x: f32, y: f32, z: f32) -> Vec3 {
-        let v = self.sample(x, y, z);
-        let vx = self.sample(x + self.epsilon, y, z);
-        let vy = self.sample(x, y + self.epsilon, z);
-        let vz = self.sample(x, y, z + self.epsilon);
+impl<S: VectorSource + ScalarSource> VectorSource for CentralDifference<S> {
+    fn sample_vector(&self, p: Vec3) -> Directed {
+        self.source.sample_vector(p)
+    }
+}
 
-        Vec3::new(vx - v, vy - v, vz - v)
+impl<S: ScalarSource> HermiteSource for CentralDifference<S> {
+    fn sample_normal(&self, p: Vec3) -> Vec3 {
+        let v = self.sample_scalar(p);
+        let vx = self.sample_scalar(p + Vec3::new(self.epsilon, 0.0, 0.0));
+        let vy = self.sample_scalar(p + Vec3::new(0.0, self.epsilon, 0.0));
+        let vz = self.sample_scalar(p + Vec3::new(0.0, 0.0, self.epsilon));
+
+        Vec3::new(vx.0 - v.0, vy.0 - v.0, vz.0 - v.0)
     }
 }

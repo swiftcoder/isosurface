@@ -1,4 +1,4 @@
-// Copyright 2018 Tristam MacDonald
+// Copyright 2021 Tristam MacDonald
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,68 +13,45 @@
 // limitations under the License.
 
 //! Isosurface definitions for use in multiple examples
+use isosurface::{
+    distance::{Directed, Signed},
+    math::Vec3,
+    source::{HermiteSource, ScalarSource, VectorSource},
+};
 
-use isosurface::source::Source;
+pub trait AllSources: ScalarSource + VectorSource + HermiteSource {}
 
-/// The distance-field equation for a torus
-fn torus(x: f32, y: f32, z: f32) -> f32 {
-    const R1: f32 = 1.0 / 4.0;
-    const R2: f32 = 1.0 / 10.0;
-    let q_x = ((x * x + y * y).sqrt()).abs() - R1;
-    let len = (q_x * q_x + z * z).sqrt();
-    len - R2
+impl<S: ScalarSource + VectorSource + HermiteSource> AllSources for S {}
+
+pub struct DemoSource<'a> {
+    pub source: Box<dyn 'a + AllSources>,
 }
 
-pub struct Torus {}
-
-impl Source for Torus {
-    fn sample(&self, x: f32, y: f32, z: f32) -> f32 {
-        torus(x - 0.5, y - 0.5, z - 0.5)
+impl<'a> DemoSource<'a> {
+    pub fn new<S: 'a + AllSources>(source: S) -> Self {
+        Self {
+            source: Box::new(source),
+        }
     }
 }
 
-fn abs(x: f32, y: f32, z: f32) -> (f32, f32, f32) {
-    (
-        if x > 0.0 { x } else { -x },
-        if y > 0.0 { y } else { -y },
-        if z > 0.0 { z } else { -z },
-    )
+impl<'a> ScalarSource for DemoSource<'a> {
+    fn sample_scalar(&self, p: Vec3) -> Signed {
+        let q = p - Vec3::from_scalar(0.5);
+        self.source.sample_scalar(q)
+    }
 }
 
-fn max(px: f32, py: f32, pz: f32, qx: f32, qy: f32, qz: f32) -> (f32, f32, f32) {
-    (
-        if px > qx { px } else { qx },
-        if py > qy { py } else { qy },
-        if pz > qz { pz } else { qz },
-    )
+impl<'a> VectorSource for DemoSource<'a> {
+    fn sample_vector(&self, p: Vec3) -> Directed {
+        let q = p - Vec3::from_scalar(0.5);
+        self.source.sample_vector(q)
+    }
 }
 
-/// The distance field equation for a cube
-fn cube(px: f32, py: f32, pz: f32, bx: f32, by: f32, bz: f32) -> f32 {
-    let (ax, ay, az) = abs(px, py, pz);
-    let (dx, dy, dz) = (ax - bx, ay - by, az - bz);
-    let (mx, my, mz) = max(dx, dy, dz, 0.0, 0.0, 0.0);
-    let l = (mx * mx + my * my + mz * mz).sqrt();
-    dx.max(dz.max(dy)).min(0.0) + l
-}
-
-/// The distance field equation for a sphere
-fn sphere(x: f32, y: f32, z: f32, r: f32) -> f32 {
-    (x * x + y * y + z * z).sqrt() - r
-}
-
-/// Subtract one distance field from another (i.e. CSG difference operation)
-fn subtract(d1: f32, d2: f32) -> f32 {
-    d2.max(-d1)
-}
-
-pub struct CubeSphere {}
-
-impl Source for CubeSphere {
-    fn sample(&self, x: f32, y: f32, z: f32) -> f32 {
-        subtract(
-            sphere(x - 0.5, y - 0.5, z - 0.5, 0.25),
-            cube(x - 0.5, y - 0.5, z - 0.5, 0.2, 0.2, 0.2),
-        )
+impl<'a> HermiteSource for DemoSource<'a> {
+    fn sample_normal(&self, p: Vec3) -> Vec3 {
+        let q = p - Vec3::from_scalar(0.5);
+        self.source.sample_normal(q)
     }
 }
