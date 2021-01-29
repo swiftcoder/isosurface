@@ -1,4 +1,4 @@
-// Copyright 2018 Tristam MacDonald
+// Copyright 2021 Tristam MacDonald
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@ pub mod text;
 use std::mem;
 use std::slice;
 
-/// This is used to reinterpret slices of floats as slices of repr(C) structs, without any
-/// copying. It is optimal, but it is also punching holes in the type system. I hope that Rust
-/// provides safe functionality to handle this in the future. In the meantime, reproduce
-/// this workaround at your own risk.
+/// This is used to reinterpret slices of floats as slices of repr(C) structs,
+/// without any copying. It is optimal, but it is also punching holes in the
+/// type system. I hope that Rust provides safe functionality to handle this in
+/// the future. In the meantime, reproduce this workaround at your own risk.
 pub fn reinterpret_cast_slice<S, T>(input: &[S]) -> &[T] {
     let length_in_bytes = input.len() * mem::size_of::<S>();
     let desired_length = length_in_bytes / mem::size_of::<T>();

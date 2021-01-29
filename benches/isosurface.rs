@@ -1,41 +1,45 @@
+// Copyright 2021 Tristam MacDonald
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use isosurface::{
-    linear_hashed_marching_cubes::LinearHashedMarchingCubes, marching_cubes::MarchingCubes,
-    source::Source,
+    distance::Signed, extractor::IndexedVertices, implicit::Torus, sampler::Sampler,
+    LinearHashedMarchingCubes, MarchingCubes,
 };
 
-fn torus(x: f32, y: f32, z: f32) -> f32 {
-    const R1: f32 = 1.0 / 4.0;
-    const R2: f32 = 1.0 / 10.0;
-    let q_x = ((x * x + y * y).sqrt()).abs() - R1;
-    let len = (q_x * q_x + z * z).sqrt();
-    len - R2
-}
-
-pub struct Torus {}
-
-impl Source for Torus {
-    fn sample(&self, x: f32, y: f32, z: f32) -> f32 {
-        torus(x - 0.5, y - 0.5, z - 0.5)
-    }
-}
-
 fn marching_cubes() {
-    let torus = Torus {};
+    let torus = Torus::new(0.25, 0.1);
+    let sampler = Sampler::new(&torus);
+
     let mut vertices = vec![];
     let mut indices = vec![];
+    let mut extractor = IndexedVertices::new(&mut vertices, &mut indices);
 
-    let mut marching_cubes = MarchingCubes::new(256);
-    marching_cubes.extract(&torus, &mut vertices, &mut indices);
+    let mut marching_cubes = MarchingCubes::<Signed>::new(128);
+    marching_cubes.extract(&sampler, &mut extractor);
 }
 
 fn linear_hashed_marching_cubes() {
-    let torus = Torus {};
+    let torus = Torus::new(0.25, 0.1);
+    let sampler = Sampler::new(&torus);
+
     let mut vertices = vec![];
     let mut indices = vec![];
+    let mut extractor = IndexedVertices::new(&mut vertices, &mut indices);
 
-    let mut marching_cubes = LinearHashedMarchingCubes::new(8);
-    marching_cubes.extract(&torus, &mut vertices, &mut indices);
+    let mut marching_cubes = LinearHashedMarchingCubes::new(7);
+    marching_cubes.extract(&sampler, &mut extractor);
 }
 
 fn marching_cubes_benchmark(c: &mut Criterion) {

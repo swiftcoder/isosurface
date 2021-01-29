@@ -6,7 +6,7 @@ license = "Apache-2.0"
 name = "isosurface"
 readme = "README.md"
 repository = "https://github.com/swiftcoder/isosurface"
-version = "0.0.4"
+version = "0.1.0-alpha.0"
 
 [dev-dependencies]
 cgmath = "^0.17"
@@ -15,12 +15,12 @@ glium = "^0.26"
 glium_text_rusttype = "^0.3"
 
 [profile.dev]
-opt-level = 2
+opt-level = 3
 
 [profile.release]
-opt-level = 3
 lto = true
+opt-level = 3
 
 [[bench]]
-name = "isosurface"
 harness = false
+name = "isosurface"
