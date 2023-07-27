@@ -81,11 +81,15 @@ impl<S: VectorSource + ScalarSource> VectorSource for CentralDifference<S> {
 
 impl<S: ScalarSource> HermiteSource for CentralDifference<S> {
     fn sample_normal(&self, p: Vec3) -> Vec3 {
-        let v = self.sample_scalar(p);
-        let vx = self.sample_scalar(p + Vec3::new(self.epsilon, 0.0, 0.0));
-        let vy = self.sample_scalar(p + Vec3::new(0.0, self.epsilon, 0.0));
-        let vz = self.sample_scalar(p + Vec3::new(0.0, 0.0, self.epsilon));
+        let dx = Vec3::new(self.epsilon, 0.0, 0.0);
+        let vx = self.sample_scalar(p + dx).0 - self.sample_scalar(p - dx).0;
 
-        Vec3::new(vx.0 - v.0, vy.0 - v.0, vz.0 - v.0)
+        let dy = Vec3::new(0.0, self.epsilon, 0.0);
+        let vy = self.sample_scalar(p + dy).0 - self.sample_scalar(p - dy).0;
+
+        let dz = Vec3::new(0.0, 0.0, self.epsilon);
+        let vz = self.sample_scalar(p + dz).0 - self.sample_scalar(p - dz).0;
+
+        Vec3::new(vx, vy, vz) / (2.0 * self.epsilon)
     }
 }
